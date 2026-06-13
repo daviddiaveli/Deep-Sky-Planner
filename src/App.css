@@ -8,10 +8,56 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
   margin-bottom: 2rem;
   border-bottom: 1px solid #1e293b;
   padding-bottom: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lang-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.lang-btn.active {
+  background: #a855f7;
+  color: white;
+  border-color: #a855f7;
+}
+
+.map-container {
+  background: #1e293b;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-top: 2rem;
+  height: 450px;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.search-input {
+  width: 250px;
 }
 
 .header h1 {

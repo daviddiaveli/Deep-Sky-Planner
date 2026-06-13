@@ -55,6 +55,11 @@ export const TRANSLATIONS = {
     alt: 'Alt',
     az: 'Az',
     footer: 'Deep Sky Planner - Astronomical Planning in Real-Time',
+    moonPhase: 'Moon Phase',
+    sunTimes: 'Sun',
+    sunrise: 'Sunrise',
+    sunset: 'Sunset',
+    searchPlaceholder: 'Search objects (e.g. Andromeda, M42)...',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -81,5 +86,10 @@ export const TRANSLATIONS = {
     alt: 'Vyska',
     az: 'Azim',
     footer: 'Hvězdný Plánovač - Astronomické plánování v reálném čase',
+    moonPhase: 'Fáze Měsíce',
+    sunTimes: 'Slunce',
+    sunrise: 'Východ',
+    sunset: 'Západ',
+    searchPlaceholder: 'Hledejte objekty (např. Andromeda, M42)...',
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Telescope, MapPin, Calendar, Wind, Eye, Info, Filter, BarChart3, Globe, Search } from 'lucide-react'
+import { Telescope, MapPin, Calendar, Wind, Eye, Info, Filter, BarChart3, Globe, Search, Moon, Sun } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -46,6 +46,11 @@ function App() {
   const [filterType, setFilterType] = useState<string>('All')
   const [maxMag, setMaxMag] = useState<number>(10)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const [moonPhase, setMoonPhase] = useState(0)
+  const [sunRise, setSunRise] = useState<Date | null>(null)
+  const [sunSet, setSunSet] = useState<Date | null>(null)
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -59,20 +64,40 @@ function App() {
     const timer = setInterval(() => setDate(new Date()), 30000)
     const observer = new Astronomy.Observer(location.lat, location.lon, 0)
     
+    // Core object calculations
     const calculated = MESSIER_CATALOG.map(obj => {
       const hor = Astronomy.Horizon(new Date(), observer, obj.ra, obj.dec, 'normal')
       return { ...obj, altitude: hor.altitude, azimuth: hor.azimuth }
     }).sort((a, b) => b.altitude - a.altitude)
     
     setVisibleObjects(calculated)
+
+    // Astronomy additional data
+    const astroTime = new Astronomy.AstroTime(date)
+    setMoonPhase(Astronomy.MoonPhase(astroTime))
+    
+    const nextRise = Astronomy.SearchRiseSet('Sun', observer, 1, date, 1)
+    const nextSet = Astronomy.SearchRiseSet('Sun', observer, -1, date, 1)
+    if (nextRise) setSunRise(nextRise.date)
+    if (nextSet) setSunSet(nextSet.date)
+
     return () => clearInterval(timer)
-  }, [location])
+  }, [location, date])
+
+  const suggestions = useMemo(() => {
+    if (!searchQuery) return []
+    return MESSIER_CATALOG.filter(obj => 
+      obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      obj.commonName[lang].toLowerCase().includes(searchQuery.toLowerCase())
+    ).slice(0, 5)
+  }, [searchQuery, lang])
 
   const filteredObjects = useMemo(() => {
     return visibleObjects.filter(obj => {
       const typeMatch = filterType === 'All' || obj.type === filterType
       const magMatch = obj.magnitude <= maxMag
-      const searchMatch = obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const searchMatch = !searchQuery || 
+                          obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           obj.commonName[lang].toLowerCase().includes(searchQuery.toLowerCase())
       return typeMatch && magMatch && searchMatch
     })
@@ -108,20 +133,55 @@ function App() {
         </div>
       </header>
 
+      {/* NEW HERO SEARCH SECTION */}
+      <section className="hero-search">
+        <div className="search-wrapper">
+          <Search className="search-icon-hero" size={28} />
+          <input 
+            className="hero-search-input" 
+            placeholder={t.searchPlaceholder}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setShowSuggestions(true)
+            }}
+            onFocus={() => setShowSuggestions(true)}
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="suggestions-list">
+              {suggestions.map(obj => (
+                <li 
+                  key={obj.id} 
+                  className="suggestion-item"
+                  onClick={() => {
+                    setSelectedObjectId(obj.id)
+                    setSearchQuery(obj.name)
+                    setShowSuggestions(false)
+                  }}
+                >
+                  <span className="suggestion-name">{obj.name} - {obj.commonName[lang]}</span>
+                  <span className="suggestion-meta">{obj.type} • Mag {obj.magnitude}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
       <div className="dashboard">
         <section className="card">
           <div className="stat-label"><MapPin size={16} /> {t.location}</div>
           <div className="stat-value">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div>
         </section>
         <section className="card">
-          <div className="stat-label"><Calendar size={16} /> {t.dateTime}</div>
-          <div className="stat-value">{date.toLocaleTimeString(lang === 'cz' ? 'cs-CZ' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</div>
-          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{date.toLocaleDateString(lang === 'cz' ? 'cs-CZ' : 'en-US')}</p>
+          <div className="stat-label"><Moon size={16} /> {t.moonPhase}</div>
+          <div className="stat-value">{moonPhase.toFixed(0)}°</div>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{moonPhase > 180 ? 'Waning' : 'Waxing'}</p>
         </section>
         <section className="card">
-          <div className="stat-label"><Wind size={16} /> {t.weather}</div>
-          <div className="stat-value" style={{ color: '#10b981' }}>{t.clear}</div>
-          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.humidity}: 45% | {t.seeing}: {t.excellent}</p>
+          <div className="stat-label"><Sun size={16} /> {t.sunTimes}</div>
+          <div className="stat-value">{sunSet ? sunSet.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</div>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.sunrise}: {sunRise ? sunRise.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</p>
         </section>
       </div>
 
@@ -160,9 +220,11 @@ function App() {
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          {/* FIXED LIGHT POLLUTION MAP using World Atlas 2015 */}
           <TileLayer
-            url="https://map1.viskan.com/lightpollution/{z}/{x}/{y}.png"
-            opacity={0.4}
+            url="https://tiles.lightpollutionmap.info/tiles/wa_2015/{z}/{x}/{y}.png"
+            opacity={0.6}
+            attribution="© lightpollutionmap.info"
           />
           <ChangeView center={[location.lat, location.lon]} />
           <Marker position={[location.lat, location.lon]}>
@@ -185,13 +247,6 @@ function App() {
         <div className="control-item">
           <label>{t.maxMag} ({maxMag})</label>
           <input type="range" min="0" max="15" step="0.5" value={maxMag} onChange={(e) => setMaxMag(parseFloat(e.target.value))} style={{ width: '150px' }} />
-        </div>
-        <div className="control-item" style={{ flexGrow: 1 }}>
-          <label>{t.search}</label>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input className="search-input" style={{ paddingLeft: '36px', width: '100%' }} placeholder={t.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-          </div>
         </div>
       </section>
 

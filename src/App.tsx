@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { Telescope, MapPin, Calendar, Wind, Eye, Info, Filter, BarChart3, Globe, Search } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
 import { MESSIER_CATALOG, TRANSLATIONS, type DeepSkyObject } from './data'
-import './App.css'
+import './index.css'
 
 // Fix for Leaflet marker icons in React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -27,10 +27,11 @@ interface VisibleObject extends DeepSkyObject {
   azimuth: number;
 }
 
-// Map helper to update view
 function ChangeView({ center }: { center: [number, number] }) {
   const map = useMap()
-  map.setView(center, map.getZoom())
+  useEffect(() => {
+    map.setView(center, map.getZoom())
+  }, [center, map])
   return null
 }
 
@@ -46,7 +47,6 @@ function App() {
   const [maxMag, setMaxMag] = useState<number>(10)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Get User Location
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
@@ -55,7 +55,6 @@ function App() {
     }
   }, [])
 
-  // Update Calculations
   useEffect(() => {
     const timer = setInterval(() => setDate(new Date()), 30000)
     const observer = new Astronomy.Observer(location.lat, location.lon, 0)
@@ -69,7 +68,6 @@ function App() {
     return () => clearInterval(timer)
   }, [location])
 
-  // Filtering & Search Logic
   const filteredObjects = useMemo(() => {
     return visibleObjects.filter(obj => {
       const typeMatch = filterType === 'All' || obj.type === filterType
@@ -80,7 +78,6 @@ function App() {
     })
   }, [visibleObjects, filterType, maxMag, searchQuery, lang])
 
-  // Chart Data
   const chartData = useMemo(() => {
     const selected = MESSIER_CATALOG.find(o => o.id === selectedObjectId)
     if (!selected || !location) return []
@@ -102,7 +99,7 @@ function App() {
     <div className="app-container">
       <header className="header">
         <div className="header-left">
-          <Telescope size={32} color="#60a5fa" />
+          <Telescope size={40} color="#8b5cf6" />
           <h1>{t.title}</h1>
         </div>
         <div className="lang-switch">
@@ -113,96 +110,115 @@ function App() {
 
       <div className="dashboard">
         <section className="card">
-          <h2><MapPin size={18} /> {t.location}</h2>
-          <div className="stats">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div>
+          <div className="stat-label"><MapPin size={16} /> {t.location}</div>
+          <div className="stat-value">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div>
         </section>
         <section className="card">
-          <h2><Calendar size={18} /> {t.dateTime}</h2>
-          <div className="stats">{date.toLocaleTimeString(lang === 'cz' ? 'cs-CZ' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</div>
-          <p>{date.toLocaleDateString(lang === 'cz' ? 'cs-CZ' : 'en-US')}</p>
+          <div className="stat-label"><Calendar size={16} /> {t.dateTime}</div>
+          <div className="stat-value">{date.toLocaleTimeString(lang === 'cz' ? 'cs-CZ' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{date.toLocaleDateString(lang === 'cz' ? 'cs-CZ' : 'en-US')}</p>
         </section>
         <section className="card">
-          <h2><Wind size={18} /> {t.weather}</h2>
-          <div className="stats" style={{ color: '#10b981' }}>{t.clear}</div>
-          <p>{t.humidity}: 45% | {t.seeing}: {t.excellent}</p>
+          <div className="stat-label"><Wind size={16} /> {t.weather}</div>
+          <div className="stat-value" style={{ color: '#10b981' }}>{t.clear}</div>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.humidity}: 45% | {t.seeing}: {t.excellent}</p>
         </section>
       </div>
 
       <div className="chart-container card">
-        <h2><BarChart3 size={20} /> {t.altitudeChart}: {selectedObject?.name} - {selectedObject?.commonName[lang]} ({t.over24h})</h2>
-        <ResponsiveContainer width="100%" height="90%">
+        <div className="chart-header">
+          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <BarChart3 size={24} color="#8b5cf6" /> 
+            {selectedObject?.name} - {selectedObject?.commonName[lang]}
+          </h2>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart} ({t.over24h})</span>
+        </div>
+        <ResponsiveContainer width="100%" height="85%">
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis dataKey="time" stroke="#94a3b8" />
-            <YAxis unit="°" domain={[0, 90]} stroke="#94a3b8" />
-            <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '8px' }} />
-            <Area type="monotone" dataKey="altitude" stroke="#a855f7" fill="url(#colorAlt)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip 
+              contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+              itemStyle={{ color: '#8b5cf6' }}
+            />
+            <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
       <section className="map-container card">
-        <h2><Globe size={20} /> {t.darkSkyMap}</h2>
+        <div className="stat-label" style={{ marginBottom: '1.2rem' }}><Globe size={18} /> {t.darkSkyMap}</div>
         <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true}>
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {/* Light Pollution Overlay - Using a public TileServer for demonstration if available, 
-              or just showing location marker for now */}
           <TileLayer
             url="https://map1.viskan.com/lightpollution/{z}/{x}/{y}.png"
-            opacity={0.5}
+            opacity={0.4}
           />
           <ChangeView center={[location.lat, location.lon]} />
           <Marker position={[location.lat, location.lon]}>
-            <Popup>Vaše poloha</Popup>
+            <Popup>Lokalita pozorování</Popup>
           </Marker>
         </MapContainer>
       </section>
 
-      <section className="controls" style={{ marginTop: '2rem' }}>
-        <div className="filter-group">
-          <Filter size={18} />
-          <label>{t.type}:</label>
+      <section className="controls">
+        <div className="control-item">
+          <label>{t.type}</label>
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             <option value="All">{t.all}</option>
             <option value="Galaxy">{t.galaxy}</option>
             <option value="Nebula">{t.nebula}</option>
             <option value="Star Cluster">{t.starCluster}</option>
+            <option value="Planetary Nebula">{t.planetaryNebula}</option>
           </select>
         </div>
-        <div className="filter-group">
-          <label>{t.maxMag}:</label>
-          <input type="range" min="0" max="15" step="0.5" value={maxMag} onChange={(e) => setMaxMag(parseFloat(e.target.value))} />
-          <span>{maxMag}</span>
+        <div className="control-item">
+          <label>{t.maxMag} ({maxMag})</label>
+          <input type="range" min="0" max="15" step="0.5" value={maxMag} onChange={(e) => setMaxMag(parseFloat(e.target.value))} style={{ width: '150px' }} />
         </div>
-        <div className="filter-group">
-          <Search size={18} />
-          <input className="search-input" placeholder={t.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        <div className="control-item" style={{ flexGrow: 1 }}>
+          <label>{t.search}</label>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input className="search-input" style={{ paddingLeft: '36px', width: '100%' }} placeholder={t.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          </div>
         </div>
       </section>
 
       <section className="object-list">
-        <h2><Eye size={24} color="#a855f7" /> {t.objects}</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+          <Eye size={28} color="#8b5cf6" /> {t.objects}
+        </h2>
         <div className="grid-list">
           {filteredObjects.map(obj => (
-            <div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''}`} onClick={() => setSelectedObjectId(obj.id)} style={{ borderLeft: obj.altitude > 0 ? '4px solid #10b981' : '4px solid #ef4444' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div 
+              key={obj.id} 
+              className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} 
+              onClick={() => setSelectedObjectId(obj.id)}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>{obj.name}</h3>
-                  <small>{obj.commonName[lang]}</small>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Mag: {obj.magnitude} | {obj.type}</p>
+                  <h3 className="obj-name">{obj.name}</h3>
+                  <div className="obj-meta">{obj.commonName[lang]}</div>
+                  <div className="obj-meta" style={{ marginTop: '0.8rem' }}>
+                    <span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> • Mag {obj.magnitude}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: obj.altitude > 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{obj.altitude.toFixed(1)}°</div>
-                  <small>{t.az}: {obj.azimuth.toFixed(0)}°</small>
+                  <div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>
+                    {obj.altitude.toFixed(1)}°
+                  </div>
+                  <div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div>
                 </div>
               </div>
             </div>
@@ -210,7 +226,7 @@ function App() {
         </div>
       </section>
 
-      <footer style={{ marginTop: '3rem', color: '#64748b', textAlign: 'center', padding: '1rem' }}>
+      <footer style={{ marginTop: '4rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem', borderTop: '1px solid var(--glass-border)' }}>
         <p>{t.footer}</p>
       </footer>
     </div>

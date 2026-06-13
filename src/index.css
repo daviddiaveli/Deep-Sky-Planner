@@ -69,14 +69,15 @@ body {
   color: var(--accent-primary);
 }
 
-/* Suggestions Dropdown */
+/* Suggestions Dropdown with Fade Effect */
 .suggestions-list {
   position: absolute;
   top: 105%;
   left: 0;
   width: 100%;
-  background: #0f172a;
-  border: 1px solid var(--border-color);
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--accent-primary);
   border-radius: 16px;
   list-style: none;
   padding: 0.5rem;
@@ -85,6 +86,12 @@ body {
   max-height: 400px;
   overflow-y: auto;
   text-align: left;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .suggestion-item {
@@ -94,11 +101,17 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
 }
 
 .suggestion-item:hover {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(139, 92, 246, 0.3);
+  padding-left: 2rem;
 }
 
 .suggestion-name {

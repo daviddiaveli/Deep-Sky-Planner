@@ -215,16 +215,17 @@ function App() {
 
       <section className="map-container card">
         <div className="stat-label" style={{ marginBottom: '1.2rem' }}><Globe size={18} /> {t.darkSkyMap}</div>
-        <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true}>
+        <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '400px', width: '100%' }}>
           <TileLayer
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {/* FIXED LIGHT POLLUTION MAP using World Atlas 2015 */}
+          {/* STABLE LIGHT POLLUTION LAYER - David Lorenz (Sky Brightness Atlas) */}
           <TileLayer
-            url="https://tiles.lightpollutionmap.info/tiles/wa_2015/{z}/{x}/{y}.png"
+            url="https://djlorenz.github.io/astronomy/lp2022/tiles/{z}/{x}/{y}.png"
             opacity={0.6}
-            attribution="© lightpollutionmap.info"
+            maxNativeZoom={12}
+            attribution="&copy; David Lorenz, Sky Brightness Atlas"
           />
           <ChangeView center={[location.lat, location.lon]} />
           <Marker position={[location.lat, location.lon]}>

@@ -51,6 +51,38 @@ function App() {
   const [moonPhase, setMoonPhase] = useState(0)
   const [sunRise, setSunRise] = useState<Date | null>(null)
   const [sunSet, setSunSet] = useState<Date | null>(null)
+  const [astroTwilight, setAstroTwilight] = useState<Date | null>(null)
+  const [weatherData, setWeatherData] = useState<any>(null)
+  const [nightPlan, setNightPlan] = useState<string[]>([])
+  const [observations, setObservations] = useState<Record<string, string>>({})
+
+  // Load from LocalStorage
+  useEffect(() => {
+    const savedPlan = localStorage.getItem('nightPlan')
+    const savedObs = localStorage.getItem('observations')
+    if (savedPlan) setNightPlan(JSON.parse(savedPlan))
+    if (savedObs) setObservations(JSON.parse(savedObs))
+  }, [])
+
+  // Save to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('nightPlan', JSON.stringify(nightPlan))
+    localStorage.setItem('observations', JSON.stringify(observations))
+  }, [nightPlan, observations])
+
+  // Atmospheric Engine (7Timer!)
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(`https://www.7timer.info/bin/astro.php?lon=${location.lon}&lat=${location.lat}&ac=0&unit=metric&output=json`)
+        const data = await response.json()
+        setWeatherData(data.dataseries[0])
+      } catch (err) {
+        console.error("Weather fetch failed:", err)
+      }
+    }
+    fetchWeather()
+  }, [location])
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -79,7 +111,12 @@ function App() {
     const nextRise = Astronomy.SearchRiseSet('Sun', observer, 1, date, 1)
     const nextSet = Astronomy.SearchRiseSet('Sun', observer, -1, date, 1)
     if (nextRise) setSunRise(nextRise.date)
-    if (nextSet) setSunSet(nextSet.date)
+    if (nextSet) {
+      setSunSet(nextSet.date)
+      // Astro Twilight is when Sun is 18 degrees below horizon
+      const twilight = Astronomy.SearchRiseSet('Sun', observer, -1, date, 1, 18)
+      if (twilight) setAstroTwilight(twilight.date)
+    }
 
     return () => clearInterval(timer)
   }, [location, date])
@@ -181,36 +218,66 @@ function App() {
         <section className="card">
           <div className="stat-label"><Sun size={16} /> {t.sunTimes}</div>
           <div className="stat-value">{sunSet ? sunSet.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</div>
-          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.sunrise}: {sunRise ? sunRise.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</p>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.twilight}: {astroTwilight ? astroTwilight.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</p>
+        </section>
+        <section className="card">
+          <div className="stat-label"><Wind size={16} /> {t.weather}</div>
+          {weatherData ? (
+            <>
+              <div className="stat-value" style={{ color: weatherData.cloudcover <= 2 ? '#10b981' : '#f59e0b' }}>
+                {weatherData.cloudcover <= 2 ? t.clear : t.cloudCover}
+              </div>
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+                {t.seeing}: {9 - weatherData.seeing}/8 | {t.transparency}: {9 - weatherData.transparency}/8
+              </p>
+            </>
+          ) : <div className="stat-value">...</div>}
         </section>
       </div>
 
-      <div className="chart-container card">
-        <div className="chart-header">
-          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <BarChart3 size={24} color="#8b5cf6" /> 
-            {selectedObject?.name} - {selectedObject?.commonName[lang]}
-          </h2>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart} ({t.over24h})</span>
+      <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="chart-container card" style={{ margin: 0 }}>
+          <div className="chart-header">
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <BarChart3 size={24} color="#8b5cf6" /> 
+              {selectedObject?.name}
+            </h2>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span>
+          </div>
+          <ResponsiveContainer width="100%" height="85%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                itemStyle={{ color: '#8b5cf6' }}
+              />
+              <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-        <ResponsiveContainer width="100%" height="85%">
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-            <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-            <Tooltip 
-              contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-              itemStyle={{ color: '#8b5cf6' }}
-            />
-            <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
-          </AreaChart>
-        </ResponsiveContainer>
+
+        <div className="imaging-container card">
+          <div className="stat-label"><Eye size={18} /> {t.imaging}</div>
+          {selectedObject && (
+            <div style={{ borderRadius: '12px', overflow: 'hidden', height: '350px', position: 'relative' }}>
+              <iframe 
+                src={`https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.name}&fov=1&survey=P%2FDSs2%2Fcolor`}
+                width="100%" 
+                height="100%" 
+                style={{ border: 'none' }}
+                title="Aladin Lite"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <section className="map-container card">
@@ -232,6 +299,32 @@ function App() {
             <Popup>Lokalita pozorování</Popup>
           </Marker>
         </MapContainer>
+      </section>
+
+      <section className="logbook card" style={{ marginTop: '2rem' }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+          <Calendar size={28} color="#8b5cf6" /> {t.nightPlan}
+        </h2>
+        <div className="grid-list">
+          {nightPlan.map(objId => {
+            const obj = MESSIER_CATALOG.find(o => o.id === objId)
+            if (!obj) return null
+            return (
+              <div key={obj.id} className="card" style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <h3>{obj.id} - {obj.commonName[lang]}</h3>
+                  <button onClick={() => setNightPlan(prev => prev.filter(id => id !== objId))} className="lang-btn" style={{ color: '#ef4444' }}>{t.removeFromPlan}</button>
+                </div>
+                <textarea 
+                  placeholder={t.notes}
+                  value={observations[objId] || ''}
+                  onChange={(e) => setObservations(prev => ({ ...prev, [objId]: e.target.value }))}
+                  style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '0.5rem', borderRadius: '8px', marginTop: '1rem', minHeight: '80px' }}
+                />
+              </div>
+            )
+          })}
+        </div>
       </section>
 
       <section className="controls">
@@ -275,6 +368,16 @@ function App() {
                     {obj.altitude.toFixed(1)}°
                   </div>
                   <div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id])
+                    }}
+                    className="lang-btn" 
+                    style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.7rem' }}
+                  >
+                    {t.addToPlan}
+                  </button>
                 </div>
               </div>
             </div>

@@ -102,36 +102,38 @@ function App() {
     }
   }, [location, date, lang, t])
 
+  // Weather fetch (Open-Meteo)
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=cloud_cover,relative_humidity_2m,visibility&forecast_days=1`)
+        const data = await response.json()
+        if (data && data.current) {
+          setWeatherData({
+            cloudcover: Math.round(data.current.cloud_cover / 12.5),
+            transparency: Math.round(data.current.visibility / 5000),
+            humidity: data.current.relative_humidity_2m
+          })
+        }
+      } catch (err) {
+        setWeatherData({ cloudcover: 0, transparency: 6, humidity: 50 })
+      }
+    }
+    fetchWeather()
+  }, [location])
+
   // Persistence
   useEffect(() => {
     const savedPlan = localStorage.getItem('nightPlan')
     const savedObs = localStorage.getItem('observations')
-    if (savedPlan) {
-      try { setNightPlan(JSON.parse(savedPlan)) } catch(e) {}
-    }
-    if (savedObs) {
-      try { setObservations(JSON.parse(savedObs)) } catch(e) {}
-    }
+    if (savedPlan) { try { setNightPlan(JSON.parse(savedPlan)) } catch(e) {} }
+    if (savedObs) { try { setObservations(JSON.parse(savedObs)) } catch(e) {} }
   }, [])
 
   useEffect(() => {
     localStorage.setItem('nightPlan', JSON.stringify(nightPlan))
     localStorage.setItem('observations', JSON.stringify(observations))
   }, [nightPlan, observations])
-
-  // Weather fetch
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const response = await fetch(`https://www.7timer.info/bin/astro.php?lon=${location.lon}&lat=${location.lat}&ac=0&unit=metric&output=json`)
-        const data = await response.json()
-        if (data && data.dataseries) setWeatherData(data.dataseries[0])
-      } catch (err) {
-        setWeatherData({ cloudcover: 1, seeing: 5, transparency: 5 })
-      }
-    }
-    fetchWeather()
-  }, [location])
 
   // GPS
   useEffect(() => {
@@ -145,33 +147,24 @@ function App() {
   // Time and Sun
   useEffect(() => {
     const timer = setInterval(() => setDate(new Date()), 30000)
-    
     try {
       const observer = new Astronomy.Observer(location.lat, location.lon, 0)
       const astroTime = new Astronomy.AstroTime(date)
       setMoonPhase(Astronomy.MoonPhase(astroTime))
-      
       const nextRise = Astronomy.SearchRiseSet('Sun', observer, 1, astroTime, 1)
       const nextSet = Astronomy.SearchRiseSet('Sun', observer, -1, astroTime, 1)
-      
       if (nextRise) setSunRise(nextRise.date || nextRise)
       if (nextSet) {
         const setDateVal = nextSet.date || nextSet
         setSunSet(setDateVal)
-        
-        // Use simplified twilight calculation if SearchAltitude crashes
         try {
           const twilight = Astronomy.SearchAltitude('Sun', observer, -1, astroTime, 1, -18)
           if (twilight) setAstroTwilight(twilight.date || twilight)
         } catch(e) {
-          const fallbackTwilight = new Date(setDateVal.getTime() + 90 * 60 * 1000)
-          setAstroTwilight(fallbackTwilight)
+          setAstroTwilight(new Date(setDateVal.getTime() + 90 * 60 * 1000))
         }
       }
-    } catch (err) {
-      console.error("Sun events calculation failed:", err)
-    }
-    
+    } catch (err) {}
     return () => clearInterval(timer)
   }, [location, date])
 
@@ -182,11 +175,8 @@ function App() {
       if (selectedCat === 'clusters') catMatch = obj.type === 'Star Cluster'
       if (selectedCat === 'nebulae') catMatch = (obj.type === 'Nebula' || obj.type === 'Planetary Nebula')
       if (selectedCat === 'planets') catMatch = obj.type === 'Planet'
-      
       const magMatch = obj.type === 'Planet' ? true : obj.magnitude <= maxMag
-      const searchMatch = !searchQuery || 
-                          obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          obj.commonName[lang].toLowerCase().includes(searchQuery.toLowerCase())
+      const searchMatch = !searchQuery || obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || obj.commonName[lang].toLowerCase().includes(searchQuery.toLowerCase())
       return catMatch && magMatch && searchMatch
     }).sort((a, b) => b.altitude - a.altitude)
   }, [allObjects, selectedCat, maxMag, searchQuery, lang])
@@ -219,25 +209,19 @@ function App() {
     return data
   }, [selectedObjectId, location, allObjects, date])
 
-  const selectedObject = useMemo(() => 
-    allObjects.find(o => o.id === selectedObjectId) || allObjects[0]
-  , [allObjects, selectedObjectId])
+  const selectedObject = useMemo(() => allObjects.find(o => o.id === selectedObjectId) || allObjects[0], [allObjects, selectedObjectId])
 
   if (allObjects.length === 0) {
     return <div style={{ background: '#020617', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
       <Telescope size={64} color="#8b5cf6" style={{ marginBottom: '1rem' }} />
-      <h2>Deep Sky Planner</h2>
-      <p>Načítání astronomických dat...</p>
+      <h2>Deep Sky Planner</h2><p>Načítání astronomických dat...</p>
     </div>
   }
 
   return (
     <div className="app-container">
       <header className="header">
-        <div className="header-left">
-          <Telescope size={40} color="#8b5cf6" />
-          <h1>{t.title}</h1>
-        </div>
+        <div className="header-left"><Telescope size={40} color="#8b5cf6" /><h1>{t.title}</h1></div>
         <div className="lang-switch">
           <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
           <button className={`lang-btn ${lang === 'cz' ? 'active' : ''}`} onClick={() => setLang('cz')}>CZ</button>
@@ -254,13 +238,7 @@ function App() {
         </div>
         <div className="search-wrapper">
           <Search className="search-icon-hero" size={28} />
-          <input 
-            className="hero-search-input" 
-            placeholder={t.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-            onFocus={() => setShowSuggestions(true)}
-          />
+          <input className="hero-search-input" placeholder={t.searchPlaceholder} value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} />
           {showSuggestions && suggestions.length > 0 && (
             <ul className="suggestions-list">
               {suggestions.map(obj => (
@@ -275,46 +253,26 @@ function App() {
       </section>
 
       <div className="dashboard">
-        <section className="card">
-          <div className="stat-label"><MapPin size={16} /> {t.location}</div>
-          <div className="stat-value">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div>
-        </section>
-        <section className="card">
-          <div className="stat-label"><Moon size={16} /> {t.moonPhase}</div>
-          <div className="stat-value">{moonPhase.toFixed(0)}°</div>
-          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{moonPhase > 180 ? 'Waning' : 'Waxing'}</p>
-        </section>
-        <section className="card">
-          <div className="stat-label"><Sun size={16} /> {t.sunTimes}</div>
-          <div className="stat-value">{sunSet ? sunSet.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</div>
-          <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.twilight}: {astroTwilight ? astroTwilight.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</p>
-        </section>
+        <section className="card"><div className="stat-label"><MapPin size={16} /> {t.location}</div><div className="stat-value">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div></section>
+        <section className="card"><div className="stat-label"><Moon size={16} /> {t.moonPhase}</div><div className="stat-value">{moonPhase.toFixed(0)}°</div><p style={{ margin: 0, color: 'var(--text-muted)' }}>{moonPhase > 180 ? 'Waning' : 'Waxing'}</p></section>
+        <section className="card"><div className="stat-label"><Sun size={16} /> {t.sunTimes}</div><div className="stat-value">{sunSet ? sunSet.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</div><p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.twilight}: {astroTwilight ? astroTwilight.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</p></section>
         <section className="card">
           <div className="stat-label"><Wind size={16} /> {t.weather}</div>
           {weatherData ? (
-            <>
-              <div className="stat-value" style={{ color: weatherData.cloudcover <= 2 ? '#10b981' : '#f59e0b' }}>{weatherData.cloudcover <= 2 ? t.clear : t.cloudCover}</div>
-              <p style={{ margin: 0, color: 'var(--text-muted)' }}>{t.seeing}: {9 - weatherData.seeing}/8 | {t.transparency}: {9 - weatherData.transparency}/8</p>
-            </>
+            <><div className="stat-value" style={{ color: weatherData.cloudcover <= 2 ? '#10b981' : '#f59e0b' }}>{weatherData.cloudcover <= 2 ? t.clear : t.cloudCover}</div>
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>{weatherData.humidity}% {t.humidity} | {t.transparency}: {Math.min(8, weatherData.transparency)}/8</p></>
           ) : <div className="stat-value">...</div>}
         </section>
       </div>
 
       <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         <div className="chart-container card" style={{ margin: 0 }}>
-          <div className="chart-header">
-            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><BarChart3 size={24} color="#8b5cf6" /> {selectedObject?.name}</h2>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span>
-          </div>
+          <div className="chart-header"><h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><BarChart3 size={24} color="#8b5cf6" /> {selectedObject?.name}</h2><span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span></div>
           <div style={{ height: '300px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs><linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#8b5cf6' }} />
-                <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} /><YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#8b5cf6' }} /><Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -322,14 +280,8 @@ function App() {
         <div className="imaging-container card">
           <div className="stat-label"><Eye size={18} /> {t.imaging}</div>
           {selectedObject && (
-            <div style={{ borderRadius: '12px', overflow: 'hidden', height: '300px', position: 'relative', background: '#000' }}>
-              <iframe 
-                src={selectedObject.type === 'Planet' ? `https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.name}&fov=1&survey=P%2FDSs2%2Fcolor` : `https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.id}&fov=0.5&survey=P%2FDSs2%2Fcolor`} 
-                width="100%" 
-                height="100%" 
-                style={{ border: 'none' }} 
-                title="Aladin Lite" 
-              />
+            <div style={{ borderRadius: '12px', overflow: 'hidden', height: '350px', position: 'relative', background: '#000' }}>
+              <iframe src={`https://aladin.cds.unistra.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type === 'Planet' ? '2' : '0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" />
             </div>
           )}
         </div>
@@ -339,10 +291,7 @@ function App() {
         <div className="stat-label" style={{ marginBottom: '1.2rem' }}><Globe size={18} /> {t.darkSkyMap}</div>
         <div style={{ height: '400px', width: '100%' }}>
           <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
-            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <TileLayer url="https://djlorenz.github.io/astronomy/lp2022/tiles/{z}/{x}/{y}.png" opacity={0.6} maxNativeZoom={12} attribution="&copy; David Lorenz, Sky Brightness Atlas" />
-            <ChangeView center={[location.lat, location.lon]} />
-            <Marker position={[location.lat, location.lon]}><Popup>Lokalita pozorování</Popup></Marker>
+            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /><TileLayer url="https://djlorenz.github.io/astronomy/lp2022/tiles/{z}/{x}/{y}.png" opacity={0.6} maxNativeZoom={12} attribution="&copy; David Lorenz, Sky Brightness Atlas" /><ChangeView center={[location.lat, location.lon]} /><Marker position={[location.lat, location.lon]}><Popup>Lokalita pozorování</Popup></Marker>
           </MapContainer>
         </div>
       </section>
@@ -355,10 +304,7 @@ function App() {
             if (!obj) return null
             return (
               <div key={obj.id} className="card" style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <h3>{obj.name} - {obj.commonName[lang]}</h3>
-                  <button onClick={() => setNightPlan(prev => prev.filter(id => id !== objId))} className="lang-btn" style={{ color: '#ef4444' }}>{t.removeFromPlan}</button>
-                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><h3>{obj.name} - {obj.commonName[lang]}</h3><button onClick={() => setNightPlan(prev => prev.filter(id => id !== objId))} className="lang-btn" style={{ color: '#ef4444' }}>{t.removeFromPlan}</button></div>
                 <textarea placeholder={t.notes} value={observations[objId] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [objId]: e.target.value }))} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '0.5rem', borderRadius: '8px', marginTop: '1rem', minHeight: '80px' }} />
               </div>
             )
@@ -367,14 +313,8 @@ function App() {
       </section>
 
       <section className="controls">
-        <div className="control-item"><label>{t.type}</label>
-          <select value={selectedCat} onChange={(e) => setSelectedCat(e.target.value)}>
-            <option value="all">{t.all}</option><option value="galaxies">{t.galaxies}</option><option value="clusters">{t.clusters}</option><option value="nebulae">{t.nebulae}</option><option value="planets">{t.planets}</option>
-          </select>
-        </div>
-        <div className="control-item"><label>{t.maxMag} ({maxMag})</label>
-          <input type="range" min="0" max="15" step="0.5" value={maxMag} onChange={(e) => setMaxMag(parseFloat(e.target.value))} style={{ width: '150px' }} />
-        </div>
+        <div className="control-item"><label>{t.type}</label><select value={selectedCat} onChange={(e) => setSelectedCat(e.target.value)}><option value="all">{t.all}</option><option value="galaxies">{t.galaxies}</option><option value="clusters">{t.clusters}</option><option value="nebulae">{t.nebulae}</option><option value="planets">{t.planets}</option></select></div>
+        <div className="control-item"><label>{t.maxMag} ({maxMag})</label><input type="range" min="0" max="15" step="0.5" value={maxMag} onChange={(e) => setMaxMag(parseFloat(e.target.value))} style={{ width: '150px' }} /></div>
       </section>
 
       <section className="object-list">
@@ -383,21 +323,13 @@ function App() {
           {filteredObjects.map(obj => (
             <div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} onClick={() => setSelectedObjectId(obj.id)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div>
-                  <div className="obj-meta" style={{ marginTop: '0.8rem' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div>
-                  <div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div>
-                  <button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button>
-                </div>
+                <div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div><div className="obj-meta" style={{ marginTop: '0.8rem' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div></div>
+                <div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div>
               </div>
             </div>
           ))}
         </div>
       </section>
-
       <footer style={{ marginTop: '4rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem', borderTop: '1px solid var(--glass-border)' }}><p>{t.footer}</p></footer>
     </div>
   )

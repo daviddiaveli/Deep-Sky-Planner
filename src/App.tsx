@@ -11,7 +11,7 @@ import L from 'leaflet'
 import { MESSIER_CATALOG, TRANSLATIONS, type DeepSkyObject } from './data'
 import './index.css'
 
-// Fix for Leaflet marker icons in React
+// Fix for Leaflet marker icons
 import icon from 'leaflet/dist/images/marker-icon.png'
 import iconShadow from 'leaflet/dist/images/marker-shadow.png'
 let DefaultIcon = L.icon({
@@ -30,18 +30,19 @@ interface VisibleObject extends DeepSkyObject {
 function ChangeView({ center }: { center: [number, number] }) {
   const map = useMap()
   useEffect(() => {
-    map.setView(center, map.getZoom())
+    if (center && center[0] && center[1]) {
+      map.setView(center, map.getZoom())
+    }
   }, [center, map])
   return null
 }
 
 function App() {
   const [lang, setLang] = useState<'en' | 'cz'>('cz')
-  const t = TRANSLATIONS[lang]
+  const t = useMemo(() => TRANSLATIONS[lang], [lang])
 
   const [location, setLocation] = useState<{lat: number, lon: number}>({ lat: 50.0755, lon: 14.4378 })
   const [date, setDate] = useState(new Date())
-  const [visibleObjects, setVisibleObjects] = useState<VisibleObject[]>([])
   const [selectedObjectId, setSelectedObjectId] = useState<string>('M31')
   const [selectedCat, setSelectedCat] = useState<string>('all')
   const [maxMag, setMaxMag] = useState<number>(10)
@@ -60,48 +61,65 @@ function App() {
 
   // Core calculations and Planets data
   const allObjects = useMemo(() => {
-    const observer = new Astronomy.Observer(location.lat, location.lon, 0)
-    
-    const messier = MESSIER_CATALOG.map(obj => {
-      const hor = Astronomy.Horizon(date, observer, obj.ra, obj.dec, 'normal')
-      return { ...obj, altitude: hor.altitude, azimuth: hor.azimuth }
-    })
+    try {
+      const observer = new Astronomy.Observer(location.lat, location.lon, 0)
+      const astroTime = new Astronomy.AstroTime(date)
+      
+      const messier = MESSIER_CATALOG.map(obj => {
+        try {
+          const hor = Astronomy.Horizon(astroTime, observer, obj.ra, obj.dec, 'normal')
+          return { ...obj, altitude: hor.altitude, azimuth: hor.azimuth } as VisibleObject
+        } catch (e) {
+          return { ...obj, altitude: -90, azimuth: 0 } as VisibleObject
+        }
+      })
 
-    const planets = planetNames.map(name => {
-      const equator = Astronomy.Equator(name, date, observer, 'EQJ', 'ABERRATION')
-      const hor = Astronomy.Horizon(date, observer, equator.ra, equator.dec, 'normal')
-      const pKey = name.toLowerCase() as keyof typeof t
-      return {
-        id: name,
-        name: name,
-        commonName: { en: name, cz: (t as any)[pKey] || name },
-        type: 'Planet' as const,
-        ra: equator.ra,
-        dec: equator.dec,
-        magnitude: -1,
-        altitude: hor.altitude,
-        azimuth: hor.azimuth
-      }
-    })
+      const planets = planetNames.map(name => {
+        try {
+          const equator = Astronomy.Equator(name, astroTime, observer, true, true)
+          const hor = Astronomy.Horizon(astroTime, observer, equator.ra, equator.dec, 'normal')
+          const pKey = name.toLowerCase()
+          return {
+            id: name,
+            name: name,
+            commonName: { en: name, cz: (t as any)[pKey] || name },
+            type: 'Planet' as any,
+            ra: equator.ra,
+            dec: equator.dec,
+            magnitude: -1,
+            altitude: hor.altitude,
+            azimuth: hor.azimuth
+          } as VisibleObject
+        } catch (e) {
+          return null
+        }
+      }).filter(Boolean) as VisibleObject[]
 
-    return [...messier, ...planets]
-  }, [location, date, t])
+      return [...messier, ...planets]
+    } catch (err) {
+      console.error("Critical calculation error:", err)
+      return []
+    }
+  }, [location, date, lang, t])
 
-  // Load from LocalStorage
+  // Persistence
   useEffect(() => {
     const savedPlan = localStorage.getItem('nightPlan')
     const savedObs = localStorage.getItem('observations')
-    if (savedPlan) setNightPlan(JSON.parse(savedPlan))
-    if (savedObs) setObservations(JSON.parse(savedObs))
+    if (savedPlan) {
+      try { setNightPlan(JSON.parse(savedPlan)) } catch(e) {}
+    }
+    if (savedObs) {
+      try { setObservations(JSON.parse(savedObs)) } catch(e) {}
+    }
   }, [])
 
-  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem('nightPlan', JSON.stringify(nightPlan))
     localStorage.setItem('observations', JSON.stringify(observations))
   }, [nightPlan, observations])
 
-  // Atmospheric Engine (7Timer!)
+  // Weather fetch
   useEffect(() => {
     const fetchWeather = async () => {
       try {
@@ -109,50 +127,53 @@ function App() {
         const data = await response.json()
         if (data && data.dataseries) setWeatherData(data.dataseries[0])
       } catch (err) {
-        console.error("Weather fetch failed:", err)
         setWeatherData({ cloudcover: 1, seeing: 5, transparency: 5 })
       }
     }
     fetchWeather()
   }, [location])
 
+  // GPS
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setLocation({ lat: position.coords.latitude, lon: position.coords.longitude })
-      })
+      }, (err) => console.warn("GPS failed", err))
     }
   }, [])
 
+  // Time and Sun
   useEffect(() => {
     const timer = setInterval(() => setDate(new Date()), 30000)
-    const observer = new Astronomy.Observer(location.lat, location.lon, 0)
-    const astroTime = new Astronomy.AstroTime(date)
-    setMoonPhase(Astronomy.MoonPhase(astroTime))
-    const nextRise = Astronomy.SearchRiseSet('Sun', observer, 1, date, 1)
-    const nextSet = Astronomy.SearchRiseSet('Sun', observer, -1, date, 1)
-    if (nextRise) setSunRise(nextRise.date)
-    if (nextSet) {
-      setSunSet(nextSet.date)
-      const twilight = Astronomy.SearchRiseSet('Sun', observer, -1, date, 1, 18)
-      if (twilight) setAstroTwilight(twilight.date)
+    
+    try {
+      const observer = new Astronomy.Observer(location.lat, location.lon, 0)
+      const astroTime = new Astronomy.AstroTime(date)
+      setMoonPhase(Astronomy.MoonPhase(astroTime))
+      
+      const nextRise = Astronomy.SearchRiseSet('Sun', observer, 1, astroTime, 1)
+      const nextSet = Astronomy.SearchRiseSet('Sun', observer, -1, astroTime, 1)
+      
+      if (nextRise) setSunRise(nextRise.date || nextRise)
+      if (nextSet) {
+        const setDateVal = nextSet.date || nextSet
+        setSunSet(setDateVal)
+        
+        // Use simplified twilight calculation if SearchAltitude crashes
+        try {
+          const twilight = Astronomy.SearchAltitude('Sun', observer, -1, astroTime, 1, -18)
+          if (twilight) setAstroTwilight(twilight.date || twilight)
+        } catch(e) {
+          const fallbackTwilight = new Date(setDateVal.getTime() + 90 * 60 * 1000)
+          setAstroTwilight(fallbackTwilight)
+        }
+      }
+    } catch (err) {
+      console.error("Sun events calculation failed:", err)
     }
+    
     return () => clearInterval(timer)
   }, [location, date])
-
-  const suggestions = useMemo(() => {
-    if (!searchQuery) return []
-    return allObjects.filter(obj => {
-      const queryMatch = obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         obj.commonName[lang].toLowerCase().includes(searchQuery.toLowerCase())
-      let catMatch = true
-      if (selectedCat === 'galaxies') catMatch = obj.type === 'Galaxy'
-      if (selectedCat === 'clusters') catMatch = obj.type === 'Star Cluster'
-      if (selectedCat === 'nebulae') catMatch = (obj.type === 'Nebula' || obj.type === 'Planetary Nebula')
-      if (selectedCat === 'planets') catMatch = obj.type === 'Planet'
-      return queryMatch && catMatch
-    }).slice(0, 8)
-  }, [searchQuery, lang, allObjects, selectedCat])
 
   const filteredObjects = useMemo(() => {
     return allObjects.filter(obj => {
@@ -161,6 +182,7 @@ function App() {
       if (selectedCat === 'clusters') catMatch = obj.type === 'Star Cluster'
       if (selectedCat === 'nebulae') catMatch = (obj.type === 'Nebula' || obj.type === 'Planetary Nebula')
       if (selectedCat === 'planets') catMatch = obj.type === 'Planet'
+      
       const magMatch = obj.type === 'Planet' ? true : obj.magnitude <= maxMag
       const searchMatch = !searchQuery || 
                           obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -169,27 +191,45 @@ function App() {
     }).sort((a, b) => b.altitude - a.altitude)
   }, [allObjects, selectedCat, maxMag, searchQuery, lang])
 
+  const suggestions = useMemo(() => {
+    if (!searchQuery) return []
+    return filteredObjects.slice(0, 8)
+  }, [searchQuery, filteredObjects])
+
   const chartData = useMemo(() => {
-    const selected = allObjects.find(o => o.id === selectedObjectId)
-    if (!selected || !location) return []
+    const selected = allObjects.find(o => o.id === selectedObjectId) || allObjects[0]
+    if (!selected) return []
     const data = []
     const observer = new Astronomy.Observer(location.lat, location.lon, 0)
-    const startTime = new Date()
+    const startTime = new Date(date)
     startTime.setMinutes(0, 0, 0)
     for (let i = 0; i <= 24; i++) {
       const time = new Date(startTime.getTime() + i * 60 * 60 * 1000)
+      const astroTime = new Astronomy.AstroTime(time)
       let curRa = selected.ra; let curDec = selected.dec
       if (selected.type === 'Planet') {
-        const eq = Astronomy.Equator(selected.name, time, observer, 'EQJ', 'ABERRATION')
-        curRa = eq.ra; curDec = eq.dec
+        try {
+          const eq = Astronomy.Equator(selected.name, astroTime, observer, true, true)
+          curRa = eq.ra; curDec = eq.dec
+        } catch(e) {}
       }
-      const hor = Astronomy.Horizon(time, observer, curRa, curDec, 'normal')
+      const hor = Astronomy.Horizon(astroTime, observer, curRa, curDec, 'normal')
       data.push({ time: time.getHours() + ':00', altitude: Math.max(0, hor.altitude) })
     }
     return data
-  }, [selectedObjectId, location, allObjects])
+  }, [selectedObjectId, location, allObjects, date])
 
-  const selectedObject = allObjects.find(o => o.id === selectedObjectId)
+  const selectedObject = useMemo(() => 
+    allObjects.find(o => o.id === selectedObjectId) || allObjects[0]
+  , [allObjects, selectedObjectId])
+
+  if (allObjects.length === 0) {
+    return <div style={{ background: '#020617', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <Telescope size={64} color="#8b5cf6" style={{ marginBottom: '1rem' }} />
+      <h2>Deep Sky Planner</h2>
+      <p>Načítání astronomických dat...</p>
+    </div>
+  }
 
   return (
     <div className="app-container">
@@ -260,28 +300,36 @@ function App() {
         </section>
       </div>
 
-      <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         <div className="chart-container card" style={{ margin: 0 }}>
           <div className="chart-header">
             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><BarChart3 size={24} color="#8b5cf6" /> {selectedObject?.name}</h2>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span>
           </div>
-          <ResponsiveContainer width="100%" height="85%">
-            <AreaChart data={chartData}>
-              <defs><linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#8b5cf6' }} />
-              <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div style={{ height: '300px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs><linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis unit="°" domain={[0, 90]} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#8b5cf6' }} />
+                <Area type="monotone" dataKey="altitude" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorAlt)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
         <div className="imaging-container card">
           <div className="stat-label"><Eye size={18} /> {t.imaging}</div>
           {selectedObject && (
-            <div style={{ borderRadius: '12px', overflow: 'hidden', height: '350px', position: 'relative', background: '#000' }}>
-              <iframe src={`https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.name}&fov=0.5&survey=P%2FDSs2%2Fcolor`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" />
+            <div style={{ borderRadius: '12px', overflow: 'hidden', height: '300px', position: 'relative', background: '#000' }}>
+              <iframe 
+                src={selectedObject.type === 'Planet' ? `https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.name}&fov=1&survey=P%2FDSs2%2Fcolor` : `https://aladin.u-strasbg.fr/AladinLite/app/?target=${selectedObject.id}&fov=0.5&survey=P%2FDSs2%2Fcolor`} 
+                width="100%" 
+                height="100%" 
+                style={{ border: 'none' }} 
+                title="Aladin Lite" 
+              />
             </div>
           )}
         </div>
@@ -289,12 +337,14 @@ function App() {
 
       <section className="map-container card">
         <div className="stat-label" style={{ marginBottom: '1.2rem' }}><Globe size={18} /> {t.darkSkyMap}</div>
-        <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '400px', width: '100%' }}>
-          <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <TileLayer url="https://djlorenz.github.io/astronomy/lp2022/tiles/{z}/{x}/{y}.png" opacity={0.6} maxNativeZoom={12} attribution="&copy; David Lorenz, Sky Brightness Atlas" />
-          <ChangeView center={[location.lat, location.lon]} />
-          <Marker position={[location.lat, location.lon]}><Popup>Lokalita pozorování</Popup></Marker>
-        </MapContainer>
+        <div style={{ height: '400px', width: '100%' }}>
+          <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer url="https://djlorenz.github.io/astronomy/lp2022/tiles/{z}/{x}/{y}.png" opacity={0.6} maxNativeZoom={12} attribution="&copy; David Lorenz, Sky Brightness Atlas" />
+            <ChangeView center={[location.lat, location.lon]} />
+            <Marker position={[location.lat, location.lon]}><Popup>Lokalita pozorování</Popup></Marker>
+          </MapContainer>
+        </div>
       </section>
 
       <section className="logbook card" style={{ marginTop: '2rem' }}>

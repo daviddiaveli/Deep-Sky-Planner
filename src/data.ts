@@ -2,7 +2,7 @@ export type DeepSkyObject = {
   id: string;
   name: string;
   commonName: { en: string; cz: string };
-  type: 'Galaxy' | 'Nebula' | 'Star Cluster' | 'Planetary Nebula';
+  type: 'Galaxy' | 'Nebula' | 'Star Cluster' | 'Planetary Nebula' | 'Planet';
   ra: number;
   dec: number;
   magnitude: number;
@@ -34,7 +34,6 @@ export const MESSIER_CATALOG: DeepSkyObject[] = [
   { id: 'M82', name: 'M82', commonName: { en: 'Cigar Galaxy', cz: 'Doutníková galaxie' }, type: 'Galaxy', ra: 9.931, dec: 69.682, magnitude: 8.41 },
   { id: 'M101', name: 'M101', commonName: { en: 'Pinwheel Galaxy', cz: 'Větrník' }, type: 'Galaxy', ra: 14.05, dec: 54.35, magnitude: 7.9 },
   { id: 'M104', name: 'M104', commonName: { en: 'Sombrero Galaxy', cz: 'Galaxie Sombrero' }, type: 'Galaxy', ra: 12.67, dec: -11.62, magnitude: 8.0 },
-  // ... more objects are available in the background search/log
 ];
 
 export const TRANSLATIONS = {
@@ -42,7 +41,7 @@ export const TRANSLATIONS = {
     title: 'Deep Sky Planner',
     location: 'Location',
     dateTime: 'Date & Time',
-    weather: 'Atmospheric Engine',
+    weather: 'Atmospheric Conditions',
     clear: 'Clear',
     humidity: 'Humidity',
     seeing: 'Seeing',
@@ -58,7 +57,7 @@ export const TRANSLATIONS = {
     planetaryNebula: 'Planetary Nebula',
     maxMag: 'Max Magnitude',
     search: 'Search...',
-    objects: 'Observation Catalog',
+    objects: 'Objects to Observe',
     darkSkyMap: 'Dark Sky Map',
     alt: 'Alt',
     az: 'Az',
@@ -78,6 +77,18 @@ export const TRANSLATIONS = {
     imaging: 'Deep Sky Imaging (Aladin Lite)',
     transparency: 'Transparency',
     cloudCover: 'Cloudy',
+    cat_all: 'All',
+    cat_galaxies: 'Galaxies',
+    cat_clusters: 'Star Clusters',
+    cat_nebulae: 'Nebulae',
+    cat_planets: 'Planets',
+    mercury: 'Mercury',
+    venus: 'Venus',
+    mars: 'Mars',
+    jupiter: 'Jupiter',
+    saturn: 'Saturn',
+    uranus: 'Uranus',
+    neptune: 'Neptune',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -131,58 +142,5 @@ export const TRANSLATIONS = {
     saturn: 'Saturn',
     uranus: 'Uran',
     neptune: 'Neptun',
-  },
-  en: {
-    title: 'Deep Sky Planner',
-    location: 'Location',
-    dateTime: 'Date & Time',
-    weather: 'Atmospheric Engine',
-    clear: 'Clear',
-    humidity: 'Humidity',
-    seeing: 'Seeing',
-    excellent: 'Excellent',
-    altitudeChart: 'Altitude Chart',
-    over24h: 'over 24h',
-    filters: 'Filters',
-    type: 'Type',
-    all: 'All',
-    galaxy: 'Galaxy',
-    nebula: 'Nebula',
-    starCluster: 'Star Cluster',
-    planetaryNebula: 'Planetary Nebula',
-    maxMag: 'Max Magnitude',
-    search: 'Search...',
-    objects: 'Observation Catalog',
-    darkSkyMap: 'Dark Sky Map',
-    alt: 'Alt',
-    az: 'Az',
-    footer: 'Deep Sky Planner - Professional Astronomical Planning',
-    moonPhase: 'Moon Phase',
-    sunTimes: 'Sun & Twilight',
-    sunrise: 'Sunrise',
-    sunset: 'Sunset',
-    twilight: 'Astro Twilight',
-    searchPlaceholder: 'Search 110 Messier objects...',
-    logbook: 'Observation Log',
-    addToPlan: 'Add to Plan',
-    removeFromPlan: 'Remove',
-    notes: 'Observation Notes',
-    saveNote: 'Save',
-    nightPlan: 'Tonight\'s Night Plan',
-    imaging: 'Deep Sky Imaging (Aladin Lite)',
-    transparency: 'Transparency',
-    cloudCover: 'Cloudy',
-    cat_all: 'All',
-    cat_galaxies: 'Galaxies',
-    cat_clusters: 'Star Clusters',
-    cat_nebulae: 'Nebulae',
-    cat_planets: 'Planets',
-    mercury: 'Mercury',
-    venus: 'Venus',
-    mars: 'Mars',
-    jupiter: 'Jupiter',
-    saturn: 'Saturn',
-    uranus: 'Uran',
-    neptune: 'Neptune',
   }
 }

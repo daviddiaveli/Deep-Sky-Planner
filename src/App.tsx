@@ -29,6 +29,7 @@ export default function App() {
   const [isNightMode, setIsNightMode] = useState(localStorage.getItem('nightMode') === 'true')
   const [focalLength, setFocalLength] = useState(750); const [eyepiece, setEyepiece] = useState(25)
   const [pixelSize, setPixelSize] = useState(3.76); const [apertureF, setApertureF] = useState(5.0)
+  const [sensorW, setSensorW] = useState(6248); const [sensorH, setSensorH] = useState(4176)
   const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111'); const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
   const [location, setLocation] = useState({ lat: 50.0755, lon: 14.4378 }); const [date, setDate] = useState(new Date())
   const [selectedObjectId, setSelectedObjectId] = useState('M31'); const [selectedCat, setSelectedCat] = useState('all')
@@ -51,11 +52,6 @@ export default function App() {
   const magnification = useMemo(() => Math.round(focalLength / (eyepiece || 1)), [focalLength, eyepiece])
   const exitPupil = useMemo(() => (eyepiece / (focalLength / 100 || 1)).toFixed(1), [focalLength, eyepiece])
   const imageScale = useMemo(() => ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2), [pixelSize, focalLength])
-  const estExposure = useMemo(() => Math.round(apertureF * apertureF * 10), [apertureF])
-
-  const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) setSharedPosts([{ id: Date.now(), user: user || 'Anon', object: obj.name, note: observations[id] || 'No notes.', time: 'Just now' }, ...sharedPosts]) }
-  const connectTelescope = () => setIsTelescopeConnected(!isTelescopeConnected)
-  const slewTelescope = (ra: number, dec: number) => { if (isTelescopeConnected) alert(`Slewing to RA: ${ra.toFixed(2)}, DEC: ${dec.toFixed(2)}`) }
 
   const allObjects = useMemo(() => {
     try {
@@ -65,6 +61,26 @@ export default function App() {
       return [...ms, ...pl]
     } catch (err) { return [] }
   }, [location, date, lang, t])
+
+  const fovH = useMemo(() => ((sensorW * pixelSize) / (focalLength || 1) * 0.0573).toFixed(2), [sensorW, pixelSize, focalLength])
+  const fovV = useMemo(() => ((sensorH * pixelSize) / (focalLength || 1) * 0.0573).toFixed(2), [sensorH, pixelSize, focalLength])
+  const samplingStatus = useMemo(() => {
+    const s = parseFloat(imageScale)
+    if (s < 0.67) return { label: t.oversampled, color: '#f59e0b' }
+    if (s > 2.0) return { label: t.undersampled, color: '#3b82f6' }
+    return { label: t.optimal, color: '#10b981' }
+  }, [imageScale, t])
+  const guidingRMS = useMemo(() => (parseFloat(imageScale) / 3).toFixed(2), [imageScale])
+  const integrationReq = useMemo(() => {
+    const obj = allObjects.find(o => o.id === selectedObjectId) || allObjects[0]
+    if (!obj) return 'N/A'
+    const mag = obj.magnitude <= 0 ? 5 : obj.magnitude
+    return Math.max(1, Math.round(Math.pow(1.5, mag - 5))).toString() + 'h'
+  }, [selectedObjectId, allObjects])
+
+  const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) setSharedPosts([{ id: Date.now(), user: user || 'Anon', object: obj.name, note: observations[id] || 'No notes.', time: 'Just now' }, ...sharedPosts]) }
+  const connectTelescope = () => setIsTelescopeConnected(!isTelescopeConnected)
+  const slewTelescope = (ra: number, dec: number) => { if (isTelescopeConnected) alert(`Slewing to RA: ${ra.toFixed(2)}, DEC: ${dec.toFixed(2)}`) }
 
   const starMapData = useMemo(() => allObjects.filter(obj => obj.altitude > 0).map(obj => ({ name: obj.name, angle: obj.azimuth, radius: 90 - obj.altitude })), [allObjects])
   const recommendedCraters = useMemo(() => MOON_CRATERS.filter(c => Math.abs(c.age - moonAge) < 2.5), [moonAge])
@@ -102,7 +118,7 @@ export default function App() {
     return d
   }, [selectedObjectId, location, allObjects, date])
 
-  if (allObjects.length === 0) return <div className="app-container" style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center'}}><h2>Initializing...</h2></div>
+  if (allObjects.length === 0) return <div className="app-container" style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center'}}><h2>Initializing Sky...</h2></div>
 
   return (
     <div className={`app-container ${isNightMode ? 'night-mode' : ''}`}>
@@ -132,7 +148,59 @@ export default function App() {
           </div>
           <div className="grid-2-cols">
             <div className="card" style={{height:'400px'}}><div className="stat-label"><MapIcon size={18} /> {t.starMap}</div><ResponsiveContainer><RadarChart data={starMapData}><PolarGrid stroke="rgba(255,255,255,0.05)"/><PolarAngleAxis dataKey="angle" tick={false}/><PolarRadiusAxis domain={[0,90]} tick={false} axisLine={false}/><Radar dataKey="radius" stroke="var(--accent-primary)" fill="var(--accent-primary)" fillOpacity={0.3}/><Tooltip content={({active, payload}) => (active && payload && payload.length) ? <div className="card" style={{padding:'4px 12px', fontSize:'0.7rem', border:'1px solid var(--accent-primary)'}}>{payload[0].payload.name}</div> : null}/></RadarChart></ResponsiveContainer></div>
-            <div className="card"><div className="stat-label"><Camera size={18} /> {t.astroAsst}</div><p>Scale: {imageScale}"/px | Exp: {estExposure}s</p><div style={{display:'flex', gap:'1rem', marginTop:'1rem'}}><input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{padding:'10px', fontSize:'1rem'}} /><input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{padding:'10px', fontSize:'1rem'}} /></div><div style={{marginTop:'1.5rem', padding:'1rem', background:'rgba(16, 185, 129, 0.05)', borderRadius:'12px', border:'1px solid rgba(16, 185, 129, 0.2)', display:'flex', alignItems:'center', gap:'10px'}}><Zap size={20} color="#10b981" /><div style={{fontSize:'0.9rem'}}><strong>{t.recommendedFilter}:</strong> {selectedObject.recommendedFilter || 'None'}</div></div></div>
+            <div className="card">
+              <div className="stat-label"><Camera size={18} /> {t.astroAsst}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Pixel (μm)</label>
+                  <input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>F-Ratio</label>
+                  <input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Sensor W</label>
+                  <input type="number" value={sensorW} onChange={e => setSensorW(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Sensor H</label>
+                  <input type="number" value={sensorH} onChange={e => setSensorH(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.sampling}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: samplingStatus.color }}>{imageScale}"/px</div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: samplingStatus.color, opacity: 0.8 }}>{samplingStatus.label}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>FOV (deg)</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{fovH}° x {fovV}°</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{((parseFloat(fovH)*parseFloat(fovV))).toFixed(2)} deg²</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.guiding}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#f87171' }}><Activity size={12} style={{verticalAlign:'middle'}}/> {guidingRMS}" RMS</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.integration}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-primary)' }}><Zap size={12} style={{verticalAlign:'middle'}}/> ~{integrationReq}</div>
+                </div>
+              </div>
+
+              <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: '#10b981', padding: '6px', borderRadius: '8px' }}><Sparkles size={16} color="white" /></div>
+                <div>
+                  <div style={{ fontSize: '0.6rem', color: '#10b981', fontWeight: 800, textTransform: 'uppercase' }}>{t.recommendedFilter}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700 }}>{selectedObject.recommendedFilter || 'No Filter / Broadband'}</div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="grid-2-cols">
             <div className="card"><h3><BarChart3 size={20}/> {selectedObject.name}</h3>

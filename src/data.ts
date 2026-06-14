@@ -162,6 +162,13 @@ export const TRANSLATIONS = {
     moonAsst: 'Moon & Terminator',
     visibleCraters: 'Best visible craters today',
     issLive: 'Live ISS Tracker',
+    sensorRes: 'Sensor Res (px)',
+    sampling: 'Sampling Rate',
+    guiding: 'Req. Guiding RMS',
+    integration: 'Total Data Req.',
+    optimal: 'Optimal',
+    undersampled: 'Under-sampled',
+    oversampled: 'Over-sampled',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -266,5 +273,12 @@ export const TRANSLATIONS = {
     moonAsst: 'Měsíc a terminátor',
     visibleCraters: 'Dnes nejlépe viditelné krátery',
     issLive: 'Živé sledování ISS',
+    sensorRes: 'Rozlišení senzoru (px)',
+    sampling: 'Kvalita samplingu',
+    guiding: 'Požadovaná pointace (RMS)',
+    integration: 'Potřebná data (celkem)',
+    optimal: 'Optimální',
+    undersampled: 'Under-sampled',
+    oversampled: 'Over-sampled',
   }
 }

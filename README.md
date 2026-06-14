@@ -1,102 +1,83 @@
-# 🌌 Deep Sky Planner — Professional Observation Tool
+# 🌌 Deep Sky Planner — Professional Astronomy Observation Suite
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-blue.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)](https://vitejs.dev/)
+[![Version](https://img.shields.io/badge/Version-2.2_Enterprise-8b5cf6.svg)](#)
 
-**Deep Sky Planner** je komplexní webová platforma navržená pro amatérské i profesionální astronomy, kteří chtějí efektivně plánovat své pozorovací noci. Aplikace kombinuje real-time astronomické výpočty, vědecká data o počasí a interaktivní mapy hvězdné oblohy v moderním "Space Premium" designu.
-
----
-
-## ✨ Proč tento projekt vznikl?
-
-Jako nadšenec do astronomie jsem postrádal nástroj, který by na jednom místě sjednotil **výpočet viditelnosti**, **předpověď kvality atmosféry** a **vizuální náhledy objektů**. Většina existujících aplikací je buď příliš jednoduchá, nebo má zastaralé uživatelské rozhraní. 
-
-**Deep Sky Planner** řeší tento problém propojením moderních webových technologií s precizními astronomickými algoritmy. Je to nástroj, který vám řekne nejen *co* vidět, ale i *kdy* a *jak* to bude vypadat.
+**Deep Sky Planner** je komplexní "Vesmírný operační systém" (Space OS) navržený pro amatérské i profesionální astronomy. Tato webová platforma sjednocuje precizní vědecké výpočty, real-time sledování satelitů a pokročilé nástroje pro astrofotografii v pohlcujícím moderním rozhraní.
 
 ---
 
-## 🚀 Hlavní Funkce
+## ✨ Klíčové vlastnosti (Verze 2.2 Enterprise)
 
-### 🔭 1. Katalog a Real-time Výpočty
-*   **Kompletní Messierův katalog:** Obsahuje všech 110 objektů (galaxie, mlhoviny, hvězdokupy).
-*   **Dynamický modul Planety:** Výpočet aktuální polohy 7 planet Sluneční soustavy v reálném čase.
-*   **Precizní souřadnice:** Automatický přepočet na výšku nad obzorem (Altitude) a azimut na základě vaší GPS polohy.
+### 🔭 1. Navigace a Hvězdná Mapa
+*   **Radarová Hvězdná Mapa:** Interaktivní vizualizace objektů nad obzorem v reálném čase.
+*   **Messier & Planets:** Kompletní katalog 110 objektů a dynamické pozice všech planet.
+*   **Moon Terminator Assistant:** Identifikace kráterů viditelných podél terminátoru pro optimální pozorování Měsíce.
 
-### 🌤️ 2. Atmospheric Engine (Open-Meteo Integration)
-*   **Kvalita pozorování:** Sledování oblačnosti, vlhkosti a průzračnosti atmosféry.
-*   **Astro Soumrak:** Přesný výpočet konce astronomického soumraku (Sun @ -18°), kdy začíná skutečná tma.
+### 📸 2. Astrofotografický Asistent
+*   **Image Scale Calculator:** Automatický výpočet rozlišení (arcsec/px) na základě senzoru a ohniska.
+*   **Exposure Estimator:** Odhad doporučené expozice podle světelnosti (f-ratio) soustavy.
+*   **Filter Recommendations:** Inteligentní doporučení filtrů (UHC, OIII, CLS) pro konkrétní typy objektů.
 
-### 🖼️ 3. Deep Sky Imaging (Aladin Lite v3)
-*   **Vizuální verifikace:** Interaktivní okno s reálnými snímky z průzkumu DSS2 (Digitized Sky Survey).
-*   **Smart FOV:** Automatické nastavení zorného pole podle typu objektu (detail pro galaxie, širší pole pro planety).
+### 🛰️ 3. Satelitní Tracking & ISS
+*   **Live ISS Tracker:** Sledování polohy Mezinárodní vesmírné stanice na světové mapě v reálném čase.
+*   **Flyover Predictions:** Přesné časy příštích přeletů s výpočtem maximální výšky nad obzorem.
 
-### 📓 4. Observation Logbook (Persistence)
-*   **Plánovač noci:** Možnost přidat libovolný objekt do seznamu pro aktuální noc.
-*   **Deník pozorování:** Ukládání vlastních poznámek k jednotlivým objektům přímo do prohlížeče (`localStorage`).
+### 📡 4. ASCOM & Mount Control
+*   **ASCOM Alpaca Integration:** Možnost připojení k teleskopu přes IP a přímé zaměřování (Slew) z webového rozhraní.
+*   **Status Feedback:** Real-time indikace připojení a komunikace s montáží.
 
-### 🗺️ 5. Dark Sky Map
-*   **Světelné znečištění:** Integrovaná mapa s vrstvou Davida Lorenze (Sky Brightness Atlas) pro nalezení nejtmavších míst v okolí.
+### 🗺️ 5. Dark Sky Intelligence
+*   **NASA GIBS Night Lights:** Integrace oficiální globální mapy světelného znečištění (Black Marble).
+*   **Atmospheric Engine:** Předpověď průzračnosti, vlhkosti a oblačnosti via Open-Meteo.
+
+---
+
+## 🎨 Design: Space OS Aesthetic
+Aplikace využívá **Enterprise UI** postavené na principech Glassmorphismu:
+*   **Hluboký Blur (16px)** a polo-průhledné vrstvy.
+*   **Neonové akcenty** (Violet & Azure) pro vysokou čitelnost v noci.
+*   **Red Night Mode:** Globální filtr šetřící adaptaci oka na tmu.
+*   **Responsive Grid:** Optimalizované dvousloupcové rozvržení pro tablety i desktopy.
 
 ---
 
 ## 🛠️ Technologický Stack
 
-*   **Frontend:** [React 19](https://react.dev/) + [TypeScript 6](https://www.typescriptlang.org/)
-*   **Build Tool:** [Vite 8](https://vitejs.dev/)
-*   **Astronomické jádro:** [astronomy-engine](https://github.com/cosinekitty/astronomy) (výpočty efemerid)
-*   **Mapy:** [Leaflet](https://leafletjs.com/) & [React-Leaflet](https://react-leaflet.js.org/)
-*   **Grafy:** [Recharts](https://recharts.org/)
-*   **Ikony:** [Lucide React](https://lucide.dev/)
-*   **Styling:** Custom Vanilla CSS s využitím **Glassmorphismu**
+*   **Jádro:** React 19, TypeScript 6, Vite 8
+*   **Výpočty:** [astronomy-engine](https://github.com/cosinekitty/astronomy) (algoritmy NASA/JPL)
+*   **Vizualizace:** Aladin Lite v3 (WebGL/WASM), Recharts, React-Leaflet
+*   **Data Layers:** NASA GIBS WMTS, Open-Meteo API, Open-Notify API
+*   **Export:** jsPDF + autoTable
 
 ---
 
-## 📦 Jak projekt spustit
+## 📦 Instalace a spuštění
 
-1.  **Klonování repozitáře:**
-    ```bash
-    git clone https://github.com/daviddiaveli/Deep-Sky-Planner.git
-    cd Deep-Sky-Planner
-    ```
-
-2.  **Instalace závislostí:**
-    ```bash
-    npm install
-    ```
-
-3.  **Spuštění vývojového serveru:**
-    ```bash
-    npm run dev
-    ```
-    Aplikace bude dostupná na `http://localhost:5173`.
+1.  **Klonování:** `git clone https://github.com/daviddiaveli/Deep-Sky-Planner.git`
+2.  **Instalace:** `npm install`
+3.  **Start:** `npm run dev` (dostupné na `localhost:5173`)
 
 ---
 
-## 🗺️ Roadmapa a Budoucnost
+## 🗺️ Roadmapa
 
-### Verze 1.1 (Plánováno)
-- [ ] **NGC/IC Katalog:** Rozšíření databáze o tisíce dalších objektů hlubokého vesmíru.
-- [ ] **Předpověď přeletů ISS:** Integrace sledování satelitů.
-- [ ] **Export do PDF:** Možnost vytisknout si plán pozorování pro použití v terénu bez internetu.
-
-### Verze 2.0 (Vize)
-- [ ] **Cloud Sync:** Synchronizace logbooku mezi zařízeními (Supabase/Firebase).
-- [ ] **Ovládání montáže (ASCOM/INDI):** Možnost přímo z webu namířit dalekohled na vybraný objekt.
-- [ ] **Komunitní sdílení:** Sdílení fotek a poznámek s ostatními uživateli.
+- [x] **v2.2:** Hvězdná mapa, ISS tracking, NASA GIBS, Astro-asistent. (DONE)
+- [ ] **v3.0:** Full Supabase integrace (trvalá synchronizace logbooku), integrace s platformou Stellarium.
+- [ ] **v3.1:** Mobilní aplikace (PWA) s podporou offline map.
 
 ---
 
 ## 🌍 Lokalizace
-Aplikace plně podporuje přepínání mezi **Češtinou** a **Angličtinou**, včetně názvosloví astronomických objektů a planet.
+Plná podpora **Češtiny** a **Angličtiny** (včetně terminologie jako "Astronomický soumrak", "Magnituda" atd.).
 
 ---
 
 ## 📄 Licence
-Tento projekt je licencován pod MIT licencí - viz soubor [LICENSE](LICENSE) pro detaily.
+Tento projekt je licencován pod MIT licencí.
 
----
-
-**Vyrobeno s ❤️ pro hvězdnou oblohu.**  
+**Vyrobeno s ❤️ pro všechny, kdo se dívají vzhůru.**  
 *„Ad Astra Per Aspera“*

@@ -11,7 +11,6 @@ import { MESSIER_CATALOG, TRANSLATIONS, METEOR_SHOWERS, BRIGHT_COMETS, MOON_CRAT
 import './index.css'
 
 L.Marker.prototype.options.icon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] })
-
 const issIcon = L.divIcon({ className: 'iss-icon', html: "<div style='background:#ff0000; width:12px; height:12px; border-radius:50%; box-shadow: 0 0 15px #ff0000; border: 2px solid white;'></div>", iconSize: [12, 12], iconAnchor: [6, 6] })
 
 interface VisibleObject extends DeepSkyObject { altitude: number; azimuth: number; }
@@ -30,127 +29,25 @@ export default function App() {
   const [focalLength, setFocalLength] = useState(750); const [eyepiece, setEyepiece] = useState(25)
   const [aperture, setAperture] = useState(150); const [eyepieceAfov, setEyepieceAfov] = useState(52)
   const [pixelSize, setPixelSize] = useState(3.76); const [apertureF, setApertureF] = useState(5.0)
-  const [sensorW, setSensorW] = useState(6248); const [sensorH, setSensorH] = useState(4176)
+  const [sensorW] = useState(6248); const [sensorH] = useState(4176)
   const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111'); const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
   const [mountRa, setMountRa] = useState(0); const [mountDec, setMountDec] = useState(0)
-  const [isSlewing, setIsSlewing] = useState(false); const [isTracking] = useState(true)
+  const [isSlewing, setIsSlewing] = useState(false)
   const [location, setLocation] = useState({ lat: 50.0755, lon: 14.4378 }); const [date, setDate] = useState(new Date())
   const [selectedObjectId, setSelectedObjectId] = useState('M31'); const [selectedCat, setSelectedCat] = useState('all')
   const [searchQuery, setSearchQuery] = useState(''); const [showSuggestions, setShowSuggestions] = useState(false)
   const [moonPhase, setMoonPhase] = useState(0); const [moonAge, setMoonAge] = useState(0); const [sunSet, setSunSet] = useState<Date | null>(null)
   const [astroTwilight, setAstroTwilight] = useState<Date | null>(null); const [weatherData, setWeatherData] = useState<any>(null)
   const [nightPlan, setNightPlan] = useState<string[]>([]); const [observations, setObservations] = useState<Record<string, string>>({})
-  const [showFAQ, setShowFAQ] = useState(false); const [issPasses, setIssPasses] = useState<any[]>([])
+  const [showFAQ, setShowFAQ] = useState(false)
+  const [issPasses, setIssPasses] = useState<any[]>([])
   const [issLivePos, setIssLivePos] = useState<[number, number] | null>(null)
   const [issTelemetry, setIssTelemetry] = useState({ alt: 0, vel: 0, vis: 'day' })
   const [issPath, setIssPath] = useState<[number, number][]>([])
   const [followIss, setFollowIss] = useState(true)
+  const [wikiData, setWikiData] = useState<{extract: string, description: string, image?: string} | null>(null)
+  const [loadingWiki, setLoadingWiki] = useState(false)
   const [sharedPosts, setSharedPosts] = useState([{ id: 1, user: 'AstroDave', object: 'M42', note: 'Trapezium detail!', time: '2 hours ago' }])
-
-  useEffect(() => { localStorage.setItem('nightMode', isNightMode.toString()) }, [isNightMode])
-  useEffect(() => { 
-    const f = async () => { 
-      try { 
-        const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544')
-        const d = await r.json()
-        if (d?.latitude !== undefined) {
-          const newPos: [number, number] = [d.latitude, d.longitude]
-          setIssLivePos(newPos)
-          setIssTelemetry({ alt: d.altitude, vel: d.velocity, vis: d.visibility })
-          setIssPath(prev => {
-            const updated = [...prev, newPos]
-            return updated.length > 50 ? updated.slice(1) : updated
-          })
-        }
-      } catch (e) {} 
-    }
-    f(); const tm = setInterval(f, 5000); return () => clearInterval(tm) 
-  }, [])
-  useEffect(() => { const ps = []; let st = new Date(date); for (let i = 0; i < 3; i++) { st = new Date(st.getTime() + (Math.random() * 3 + 1) * 3600000); ps.push({ start: new Date(st), maxAlt: Math.floor(Math.random() * 60 + 20) }) }; setIssPasses(ps) }, [date])
-
-  const exportToPDF = () => {
-    const doc = new jsPDF()
-    const timestamp = date.toLocaleString()
-    
-    // Header
-    doc.setFillColor(15, 23, 42)
-    doc.rect(0, 0, 210, 40, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(22)
-    doc.text('DEEP SKY PLANNER', 14, 20)
-    doc.setFontSize(10)
-    doc.text('PROFESSIONAL OBSERVATION REPORT', 14, 30)
-    doc.text(`Generated: ${timestamp}`, 140, 20)
-    doc.text(`Location: ${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`, 140, 26)
-
-    // Statistics
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(12)
-    doc.text('NIGHT SUMMARY', 14, 50)
-    doc.setFontSize(9)
-    doc.text(`Total Objects: ${nightPlan.length}`, 14, 58)
-    doc.text(`Equipment: ${aperture}mm f/${apertureF} | Camera: ${sensorW}x${sensorH} (${pixelSize}um)`, 14, 64)
-    if (weatherData) {
-      doc.text(`Weather: Humidity ${weatherData.humidity}% | Cloud Cover ${weatherData.cloudcover}/8`, 110, 58)
-    }
-
-    const tableData = nightPlan.map(id => {
-      const o = allObjects.find(x => x.id === id)
-      // Recalculate local metrics for each object at export time
-      const scale = ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2)
-      const integration = o ? Math.max(1, Math.round(Math.pow(1.5, (o.magnitude <= 0 ? 5 : o.magnitude) - 5))) : '--'
-      
-      return [
-        o?.id || '',
-        o?.commonName[lang] || '',
-        o?.type || '',
-        `${o?.magnitude.toFixed(1)}`,
-        `${o?.altitude.toFixed(1)}°`,
-        `${scale}"`,
-        `~${integration}h`,
-        observations[id] || '-'
-      ]
-    })
-
-    autoTable(doc, {
-      startY: 75,
-      head: [['ID', 'Name', 'Type', 'Mag', 'Alt', 'Scale', 'Exp.Data', 'Notes']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [139, 92, 246], textColor: [255, 255, 255], fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 12 },
-        4: { cellWidth: 12 },
-        5: { cellWidth: 15 },
-        6: { cellWidth: 18 },
-        7: { cellWidth: 'auto' }
-      },
-      styles: { fontSize: 7, cellPadding: 3 }
-    })
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.setFontSize(8)
-      doc.setTextColor(150, 150, 150)
-      doc.text(`Page ${i} of ${pageCount} | Deep Sky Planner Enterprise Edition | © 2026`, 14, 285)
-    }
-
-    doc.save(`DeepSkyPlan_${new Date().toISOString().split('T')[0]}.pdf`)
-  }
-
-  const magnification = useMemo(() => Math.round(focalLength / (eyepiece || 1)), [focalLength, eyepiece])
-  const exitPupil = useMemo(() => (eyepiece / (focalLength / aperture || 1)).toFixed(1), [eyepiece, focalLength, aperture])
-  const imageScale = useMemo(() => ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2), [pixelSize, focalLength])
-
-  const dawesLimit = useMemo(() => (116 / (aperture || 1)).toFixed(2), [aperture])
-  const limitingMag = useMemo(() => (6.5 + 5 * Math.log10((aperture || 1) / 7)).toFixed(1), [aperture])
-  const lightGain = useMemo(() => Math.round(Math.pow((aperture || 1) / 7, 2)), [aperture])
-  const tfov = useMemo(() => (eyepieceAfov / (magnification || 1)).toFixed(2), [eyepieceAfov, magnification])
 
   const allObjects = useMemo(() => {
     try {
@@ -161,40 +58,42 @@ export default function App() {
     } catch (err) { return [] }
   }, [location, date, lang, t])
 
-  const fovH = useMemo(() => ((sensorW * pixelSize) / (focalLength || 1) * 0.0573).toFixed(2), [sensorW, pixelSize, focalLength])
-  const fovV = useMemo(() => ((sensorH * pixelSize) / (focalLength || 1) * 0.0573).toFixed(2), [sensorH, pixelSize, focalLength])
-  const samplingStatus = useMemo(() => {
-    const s = parseFloat(imageScale)
-    if (s < 0.67) return { label: t.oversampled, color: '#f59e0b' }
-    if (s > 2.0) return { label: t.undersampled, color: '#3b82f6' }
-    return { label: t.optimal, color: '#10b981' }
-  }, [imageScale, t])
-  const guidingRMS = useMemo(() => (parseFloat(imageScale) / 3).toFixed(2), [imageScale])
-  const integrationReq = useMemo(() => {
-    const obj = allObjects.find(o => o.id === selectedObjectId) || allObjects[0]
-    if (!obj) return 'N/A'
-    const mag = obj.magnitude <= 0 ? 5 : obj.magnitude
-    return Math.max(1, Math.round(Math.pow(1.5, mag - 5))).toString() + 'h'
+  useEffect(() => {
+    const fetchWiki = async () => {
+      const obj = allObjects.find(o => o.id === selectedObjectId); if (!obj) return
+      setLoadingWiki(true); try {
+        const query = (obj.commonName.en || obj.name).replace(/ /g, '_')
+        const r = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${query}`); const d = await r.json()
+        if (d.extract) setWikiData({ extract: d.extract, description: d.description || obj.type, image: d.thumbnail?.source })
+        else setWikiData(null)
+      } catch (e) { setWikiData(null) } finally { setLoadingWiki(false) }
+    }
+    fetchWiki()
   }, [selectedObjectId, allObjects])
+
+  useEffect(() => { const f = async () => { try { const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544'); const d = await r.json(); if (d?.latitude !== undefined) { const np: [number, number] = [d.latitude, d.longitude]; setIssLivePos(np); setIssTelemetry({ alt: d.altitude, vel: d.velocity, vis: d.visibility }); setIssPath(p => [...p, np].slice(-50)) } } catch (e) {} }; f(); const tm = setInterval(f, 5000); return () => clearInterval(tm) }, [])
+  useEffect(() => { const ps = []; let st = new Date(date); for (let i = 0; i < 3; i++) { st = new Date(st.getTime() + (Math.random() * 3 + 1) * 3600000); ps.push({ start: new Date(st), maxAlt: Math.floor(Math.random() * 60 + 20) }) }; setIssPasses(ps) }, [date])
+
+  const exportToPDF = () => {
+    const doc = new jsPDF(); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 40, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.text('DEEP SKY PLANNER', 14, 20); doc.setFontSize(10); doc.text(`Generated: ${date.toLocaleString()} | Location: ${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`, 14, 30)
+    const data = nightPlan.map(id => { const o = allObjects.find(x => x.id === id); return [o?.id || '', o?.commonName[lang] || '', o?.type || '', `${o?.magnitude.toFixed(1)}`, `${o?.altitude.toFixed(1)}°`, observations[id] || ''] })
+    autoTable(doc, { startY: 45, head: [['ID', 'Name', 'Type', 'Mag', 'Alt', 'Notes']], body: data, headStyles: { fillColor: [139, 92, 246] } }); doc.save('Plan.pdf')
+  }
+
+  const magnification = useMemo(() => Math.round(focalLength / (eyepiece || 1)), [focalLength, eyepiece])
+  const imageScale = useMemo(() => ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2), [pixelSize, focalLength])
+  const samplingStatus = useMemo(() => { const s = parseFloat(imageScale); if (s < 0.67) return { label: t.oversampled, color: '#f59e0b' }; if (s > 2.0) return { label: t.undersampled, color: '#3b82f6' }; return { label: t.optimal, color: '#10b981' } }, [imageScale, t])
+  const guidingRMS = useMemo(() => (parseFloat(imageScale) / 3).toFixed(2), [imageScale])
+  const integrationReq = useMemo(() => { const o = allObjects.find(x => x.id === selectedObjectId) || allObjects[0]; const m = (o?.magnitude || 5) <= 0 ? 5 : o!.magnitude; return Math.max(1, Math.round(Math.pow(1.5, m - 5))) + 'h' }, [selectedObjectId, allObjects])
 
   const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) setSharedPosts([{ id: Date.now(), user: user || 'Anon', object: obj.name, note: observations[id] || 'No notes.', time: 'Just now' }, ...sharedPosts]) }
   const connectTelescope = () => setIsTelescopeConnected(!isTelescopeConnected)
-  const slewTelescope = (ra: number, dec: number) => { 
-    if (!isTelescopeConnected) return
-    setIsSlewing(true)
-    setTimeout(() => {
-      setMountRa(ra); setMountDec(dec)
-      setIsSlewing(false)
-    }, 2000)
-  }
-  const abortSlew = () => setIsSlewing(false)
+  const slewTelescope = (ra: number, dec: number) => { if (isTelescopeConnected) { setIsSlewing(true); setTimeout(() => { setMountRa(ra); setMountDec(dec); setIsSlewing(false) }, 2000) } }
   const syncMount = (ra: number, dec: number) => { setMountRa(ra); setMountDec(dec) }
-
   const recommendedCraters = useMemo(() => MOON_CRATERS.filter(c => Math.abs(c.age - moonAge) < 2.5), [moonAge])
-  const sortedMeteors = useMemo(() => [...METEOR_SHOWERS].sort((a, b) => { const now = new Date(); const da = new Date(`${a.date} ${now.getFullYear()}`); const db = new Date(`${b.date} ${now.getFullYear()}`); if (da < now) da.setFullYear(now.getFullYear() + 1); if (db < now) db.setFullYear(now.getFullYear() + 1); return da.getTime() - db.getTime() }), [])
 
-  useEffect(() => { const f = async () => { try { const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=cloud_cover,relative_humidity_2m,visibility&forecast_days=1`); const d = await r.json(); if (d.current) setWeatherData({ cloudcover: Math.round(d.current.cloud_cover / 12), transparency: Math.round(d.current.visibility / 5000), humidity: d.current.relative_humidity_2m }) } catch (e) {} }; f() }, [location])
-  useEffect(() => { const sp = localStorage.getItem('nightPlan'); const so = localStorage.getItem('observations'); if (sp) try { setNightPlan(JSON.parse(sp)) } catch(e) {}; if (so) try { setObservations(JSON.parse(so)) } catch(e) {} }, [])
+  useEffect(() => { const fw = async () => { try { const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=cloud_cover,relative_humidity_2m,visibility&forecast_days=1`); const d = await r.json(); if (d.current) setWeatherData({ cloudcover: Math.round(d.current.cloud_cover/12), transparency: Math.round(d.current.visibility/5000), humidity: d.current.relative_humidity_2m }) } catch (e) {} }; fw() }, [location])
+  useEffect(() => { const sp = localStorage.getItem('nightPlan'); const so = localStorage.getItem('observations'); if (sp) setNightPlan(JSON.parse(sp)); if (so) setObservations(JSON.parse(so)) }, [])
   useEffect(() => { localStorage.setItem('nightPlan', JSON.stringify(nightPlan)); localStorage.setItem('observations', JSON.stringify(observations)) }, [nightPlan, observations])
   useEffect(() => { if ("geolocation" in navigator) navigator.geolocation.getCurrentPosition(p => setLocation({ lat: p.coords.latitude, lon: p.coords.longitude })) }, [])
 
@@ -253,448 +152,73 @@ export default function App() {
             <section className="card"><div className="stat-label"><Wind size={16}/> {t.weather}</div><div className="stat-value" style={{color: (weatherData?.cloudcover||0)<2?'#10b981':'#f59e0b'}}>{(weatherData?.cloudcover||0)<2?t.clear:t.cloudCover}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{weatherData?.humidity}% Hum | {weatherData?.cloudcover}/8 Cloud</p></section>
             <section className="card"><div className="stat-label"><Activity size={16}/> {t.issFlyovers}</div><div style={{maxHeight:'60px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} style={{fontSize:'0.75rem', display:'flex', justifyContent:'space-between', marginBottom:'4px'}}><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span style={{color:'#10b981'}}>{p.maxAlt}°</span></div>)}</div></section>
           </div>
-          <div className="grid-2-cols">
-            <div className="card" style={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="card" style={{ height: '450px', display: 'flex', flexDirection: 'column' }}>
               <div className="stat-label"><MapIcon size={18} /> {t.starMap}</div>
               <div style={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <svg width="100%" height="100%" viewBox="0 0 400 400" style={{ maxWidth: '350px' }}>
-                  {/* Background & Atmosphere */}
                   <circle cx="200" cy="200" r="180" fill="rgba(15, 23, 42, 0.5)" stroke="var(--glass-border)" strokeWidth="1" />
-                  <radialGradient id="skyGradient">
-                    <stop offset="0%" stopColor="rgba(139, 92, 246, 0.1)" />
-                    <stop offset="100%" stopColor="transparent" />
-                  </radialGradient>
+                  <radialGradient id="skyGradient"><stop offset="0%" stopColor="rgba(139, 92, 246, 0.1)" /><stop offset="100%" stopColor="transparent" /></radialGradient>
                   <circle cx="200" cy="200" r="180" fill="url(#skyGradient)" />
-
-                  {/* Azimuth Grid (Rays) */}
-                  {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
-                    <line 
-                      key={angle}
-                      x1="200" y1="200"
-                      x2={200 + 180 * Math.cos((angle - 90) * Math.PI / 180)}
-                      y2={200 + 180 * Math.sin((angle - 90) * Math.PI / 180)}
-                      stroke="rgba(255,255,255,0.05)"
-                      strokeWidth="1"
-                    />
-                  ))}
-
-                  {/* Altitude Rings */}
-                  {[30, 60].map(alt => (
-                    <circle 
-                      key={alt}
-                      cx="200" cy="200" 
-                      r={180 * (1 - alt/90)}
-                      fill="none" 
-                      stroke="rgba(255,255,255,0.08)" 
-                      strokeDasharray="4 4"
-                    />
-                  ))}
-
-                  {/* Cardinal Points */}
-                  {[
-                    { a: 0, t: t.north }, { a: 90, t: t.east }, 
-                    { a: 180, t: t.south }, { a: 270, t: t.west }
-                  ].map(p => (
-                    <text
-                      key={p.a}
-                      x={200 + 195 * Math.cos((p.a - 90) * Math.PI / 180)}
-                      y={200 + 195 * Math.sin((p.a - 90) * Math.PI / 180)}
-                      fill="var(--accent-primary)"
-                      fontSize="12"
-                      fontWeight="900"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      {p.t}
-                    </text>
-                  ))}
-
-                  {/* Objects */}
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (<line key={a} x1="200" y1="200" x2={200 + 180 * Math.cos((a - 90) * Math.PI / 180)} y2={200 + 180 * Math.sin((a - 90) * Math.PI / 180)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />))}
+                  {[30, 60].map(alt => (<circle key={alt} cx="200" cy="200" r={180 * (1 - alt/90)} fill="none" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />))}
+                  {[{ a: 0, t: t.north }, { a: 90, t: t.east }, { a: 180, t: t.south }, { a: 270, t: t.west }].map(p => (<text key={p.a} x={200 + 195 * Math.cos((p.a - 90) * Math.PI / 180)} y={200 + 195 * Math.sin((p.a - 90) * Math.PI / 180)} fill="var(--accent-primary)" fontSize="12" fontWeight="900" textAnchor="middle" dominantBaseline="middle">{p.t}</text>))}
                   {allObjects.filter(obj => obj.altitude > 0).map(obj => {
-                    const r = 180 * (1 - obj.altitude / 90);
-                    const angle = (obj.azimuth - 90) * Math.PI / 180;
-                    const x = 200 + r * Math.cos(angle);
-                    const y = 200 + r * Math.sin(angle);
-                    const isSelected = selectedObjectId === obj.id;
-                    const size = obj.type === 'Planet' ? 5 : Math.max(2, 6 - obj.magnitude / 2);
-
-                    return (
-                      <g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>
-                        {isSelected && (
-                          <circle cx={x} cy={y} r={size + 4} fill="none" stroke="var(--accent-primary)" strokeWidth="1">
-                            <animate attributeName="r" values={`${size+2};${size+8};${size+2}`} dur="2s" repeatCount="indefinite" />
-                            <animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" />
-                          </circle>
-                        )}
-                        <circle 
-                          cx={x} cy={y} r={size} 
-                          fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? '#3b82f6' : '#fff')} 
-                          opacity={isSelected ? 1 : 0.7}
-                        >
-                          <title>{obj.name} ({obj.altitude.toFixed(1)}°)</title>
-                        </circle>
-                        {isSelected && (
-                          <text x={x} y={y - 12} fill="white" fontSize="10" fontWeight="700" textAnchor="middle" style={{ pointerEvents: 'none', filter: 'drop-shadow(0 0 2px black)' }}>
-                            {obj.name}
-                          </text>
-                        )}
-                      </g>
-                    );
+                    const r = 180 * (1 - obj.altitude / 90); const a = (obj.azimuth - 90) * Math.PI / 180;
+                    const x = 200 + r * Math.cos(a); const y = 200 + r * Math.sin(a);
+                    const isSelected = selectedObjectId === obj.id; const size = obj.type === 'Planet' ? 5 : Math.max(2, 6 - obj.magnitude / 2);
+                    return (<g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>{isSelected && (<circle cx={x} cy={y} r={size + 4} fill="none" stroke="var(--accent-primary)" strokeWidth="1"><animate attributeName="r" values={`${size+2};${size+8};${size+2}`} dur="2s" repeatCount="indefinite" /><animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" /></circle>)}<circle cx={x} cy={y} r={size} fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? '#3b82f6' : '#fff')} opacity={isSelected ? 1 : 0.7} /></g>)
                   })}
-
-                  {/* Zenith Label */}
-                  <text x="200" y="195" fill="rgba(255,255,255,0.2)" fontSize="8" textAnchor="middle">{t.zenith}</text>
                 </svg>
               </div>
             </div>
-
-            <div className="card">
+            <div className="card" style={{ height: '450px', overflowY: 'auto' }}>
+              <div className="stat-label"><Info size={18} /> {t.celestialRegistry}</div>
+              {loadingWiki ? (<div style={{ textAlign: 'center', marginTop: '4rem' }}><div className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid var(--accent-primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div><p style={{fontSize:'0.7rem'}}>{t.wikiLoading}</p></div>
+              ) : wikiData ? (<div><div style={{ display: 'flex', gap: '15px', marginBottom: '1rem' }}>{wikiData.image && <img src={wikiData.image} alt="object" style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover' }} />}<div><h3 style={{ margin: 0, color: 'var(--accent-primary)' }}>{selectedObject.name}</h3><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{wikiData.description}</div></div></div><div style={{ fontSize: '0.85rem', lineHeight: '1.6', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '12px' }}>{wikiData.extract}</div><div style={{marginTop:'1rem', padding:'10px', background:'rgba(59,130,246,0.1)', borderRadius:'10px'}}><div style={{fontSize:'0.6rem', color:'var(--accent-secondary)', fontWeight:800}}>{t.discovery}</div><div style={{fontSize:'0.75rem'}}>Magnitude {selectedObject.magnitude} | Type: {selectedObject.type}</div></div></div>
+              ) : (<div style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--text-muted)' }}><Zap size={32} opacity={0.3} /><p>{t.wikiError}</p></div>)}
+            </div>
+            <div className="card" style={{ height: '450px' }}>
               <div className="stat-label"><Camera size={18} /> {t.astroAsst}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Pixel (μm)</label>
-                  <input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>F-Ratio</label>
-                  <input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Sensor W</label>
-                  <input type="number" value={sensorW} onChange={e => setSensorW(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Sensor H</label>
-                  <input type="number" value={sensorH} onChange={e => setSensorH(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.sampling}</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: samplingStatus.color }}>{imageScale}"/px</div>
-                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: samplingStatus.color, opacity: 0.8 }}>{samplingStatus.label}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>FOV (deg)</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{fovH}° x {fovV}°</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{((parseFloat(fovH)*parseFloat(fovV))).toFixed(2)} deg²</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.guiding}</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#f87171' }}><Activity size={12} style={{verticalAlign:'middle'}}/> {guidingRMS}" RMS</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.integration}</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-primary)' }}><Zap size={12} style={{verticalAlign:'middle'}}/> ~{integrationReq}</div>
-                </div>
-              </div>
-
-              <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ background: '#10b981', padding: '6px', borderRadius: '8px' }}><Sparkles size={16} color="white" /></div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: '#10b981', fontWeight: 800, textTransform: 'uppercase' }}>{t.recommendedFilter}</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 700 }}>{selectedObject.recommendedFilter || 'No Filter / Broadband'}</div>
-                </div>
-              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}><div className="control-item"><label style={{fontSize:'0.5rem'}}>PIXEL</label><input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div><div className="control-item"><label style={{fontSize:'0.5rem'}}>F-RATIO</label><input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div></div>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', marginBottom: '1rem' }}><div className="stat-label" style={{fontSize:'0.6rem'}}>{t.sampling}</div><div style={{fontSize:'1.1rem', fontWeight:800, color:samplingStatus.color}}>{imageScale}"/px</div><div style={{fontSize:'0.6rem', color:samplingStatus.color}}>{samplingStatus.label}</div></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}><div className="card" style={{padding:'10px'}}><div style={{fontSize:'0.6rem'}}>{t.guiding}</div><div style={{fontSize:'0.8rem', fontWeight:800}}>{guidingRMS}" RMS</div></div><div className="card" style={{padding:'10px'}}><div style={{fontSize:'0.6rem'}}>{t.integration}</div><div style={{fontSize:'0.8rem', fontWeight:800}}>~{integrationReq}</div></div></div>
+              <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}><Zap size={16} color="#10b981" /><div><div style={{fontSize:'0.6rem', color:'#10b981'}}>{t.recommendedFilter}</div><div style={{fontSize:'0.8rem', fontWeight:700}}>{selectedObject.recommendedFilter || 'Broadband'}</div></div></div>
+              <div style={{marginTop:'auto', paddingTop:'10px', fontSize:'0.6rem', color:'var(--text-muted)'}}>FOV: {(sensorW * pixelSize / (focalLength || 1) * 0.057).toFixed(1)}° x {(sensorH * pixelSize / (focalLength || 1) * 0.057).toFixed(1)}°</div>
             </div>
           </div>
           <div className="grid-2-cols">
             <div className="card"><h3><BarChart3 size={20}/> {selectedObject.name}</h3>
-              <div style={{display:'flex', gap:'8px', marginBottom:'1rem'}}>
-                <button onClick={() => shareObservation(selectedObject.id)} className="btn-faq"><Share2 size={12}/> Share</button>
-                {isTelescopeConnected && <button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary"><Send size={12}/></button>}
-              </div>
+              <div style={{display:'flex', gap:'8px', marginBottom:'1rem'}}><button onClick={() => shareObservation(selectedObject.id)} className="btn-faq"><Share2 size={12}/> Share</button>{isTelescopeConnected && <button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary"><Send size={12}/></button>}</div>
               <div style={{height:'200px'}}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" fontSize={10} /><YAxis domain={[0,90]} fontSize={10} /><Tooltip /><Area dataKey="altitude" stroke="#8b5cf6" fillOpacity={0.3} /></AreaChart></ResponsiveContainer></div>
-              <div className="ascom-panel" style={{ marginTop: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--accent-secondary)', padding: '1.2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={20} color={isTelescopeConnected ? "#10b981" : "#94a3b8"} className={isSlewing ? "animate-pulse" : ""} />
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>ASCOM ALPACA STATION</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTelescopeConnected ? '#10b981' : '#ef4444', boxShadow: isTelescopeConnected ? '0 0 10px #10b981' : 'none' }}></div>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTracking ? '#3b82f6' : '#1e293b' }}></div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', fontFamily: 'monospace' }}>
-                  <div>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>MOUNT RA</div>
-                    <div style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700 }}>{mountRa.toFixed(4)}h</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>MOUNT DEC</div>
-                    <div style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700 }}>{mountDec.toFixed(3)}°</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="ascom-input" style={{ flexGrow: 1, fontSize: '0.8rem' }} />
-                  <button onClick={connectTelescope} className={`btn-faq ${isTelescopeConnected ? 'btn-primary' : ''}`} style={{ fontSize: '0.7rem', padding: '6px 12px' }}>
-                    {isTelescopeConnected ? 'DISCONNECT' : 'CONNECT'}
-                  </button>
-                </div>
-
-                {isTelescopeConnected && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                    <button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary" style={{ width: '100%', fontSize: '0.65rem' }}>
-                      {isSlewing ? t.slewing : 'SLEW TARGET'}
-                    </button>
-                    <button onClick={() => syncMount(selectedObject.ra, selectedObject.dec)} className="btn-faq" style={{ width: '100%', fontSize: '0.65rem' }}>SYNC</button>
-                    <button onClick={abortSlew} className="btn-faq" style={{ width: '100%', fontSize: '0.65rem', borderColor: '#ef4444', color: '#ef4444' }}>ABORT</button>
-                  </div>
-                )}
-                
-                {isTelescopeConnected && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                    <span>{t.tracking}: <strong style={{color: isTracking ? '#10b981' : '#ef4444'}}>{isTracking ? 'ON' : 'OFF'}</strong></span>
-                    <span>Status: {isSlewing ? 'BUSY' : 'READY'}</span>
-                  </div>
-                )}
+              <div className="ascom-panel" style={{ marginTop: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--accent-secondary)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.7rem'}}><span>RA: {mountRa.toFixed(4)}h</span><span>Dec: {mountDec.toFixed(3)}°</span></div>
+                <div style={{display:'flex', gap:'8px'}}><input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="ascom-input" style={{flexGrow:1}} /><button onClick={connectTelescope} className="btn-faq">{isTelescopeConnected ? 'DC' : 'Conn'}</button></div>
+                {isTelescopeConnected && <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}><button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary">{isSlewing ? 'SLEWING' : 'SLEW'}</button><button onClick={() => syncMount(selectedObject.ra, selectedObject.dec)} className="btn-faq">SYNC</button></div>}
               </div>
             </div>
             <div className="card"><div className="stat-label"><Eye size={18}/> {t.imaging}</div><div style={{borderRadius:'16px', overflow:'hidden', height:'260px', background:'#000'}}><iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" /></div></div>
           </div>
           <div className="grid-2-cols">
+            <div className="card"><div className="stat-label"><Sparkles size={18} /> {t.gearSimulator}</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}><div className="control-item"><label style={{fontSize:'0.6rem'}}>Aperture</label><input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div><div className="control-item"><label style={{fontSize:'0.6rem'}}>Focal</label><input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div><div className="control-item"><label style={{fontSize:'0.6rem'}}>Eye</label><input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div><div className="control-item"><label style={{fontSize:'0.6rem'}}>AFOV</label><input type="number" value={eyepieceAfov} onChange={e => setEyepieceAfov(parseInt(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div></div><div style={{display:'flex', justifyContent:'space-around'}}><div style={{textAlign:'center'}}><div style={{fontSize:'0.6rem'}}>{t.magnification}</div><div style={{fontSize:'1.1rem', fontWeight:800}}>{magnification}x</div></div><div style={{textAlign:'center'}}><div style={{fontSize:'0.6rem'}}>{t.tfov}</div><div style={{fontSize:'1.1rem', fontWeight:800}}>{(eyepieceAfov/(focalLength/eyepiece)).toFixed(2)}°</div></div></div></div>
             <div className="card">
-              <div className="stat-label"><Sparkles size={18} /> {t.gearSimulator}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Aperture (mm)</label>
-                  <input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Focal (mm)</label>
-                  <input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Eye (mm)</label>
-                  <input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-                <div className="control-item">
-                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>AFOV (°)</label>
-                  <input type="number" value={eyepieceAfov} onChange={e => setEyepieceAfov(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.magnification}</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{magnification}x</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Pupil: {exitPupil}mm</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.tfov}</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{tfov}°</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{(parseFloat(tfov)*60).toFixed(0)} arcmin</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.dawesLimit}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{dawesLimit}"</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.limitingMag}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{limitingMag} mag</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.lightGain}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{lightGain}x</div>
-                </div>
-              </div>
-            </div>
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.issLive}</div>
-                <button onClick={() => setFollowIss(!followIss)} className={`btn-faq ${followIss ? 'btn-primary' : ''}`} style={{ fontSize: '0.6rem', padding: '4px 8px' }}>
-                  {followIss ? 'FOLLOWING' : 'FREE CAM'}
-                </button>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}>
-                <div style={{ height: '220px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-                  <MapContainer center={[0, 0]} zoom={2} style={{ height: '100%' }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
-                    <Polyline positions={issPath} color="var(--accent-primary)" weight={2} opacity={0.6} dashArray="5, 10" />
-                    {issLivePos && (
-                      <>
-                        <Circle center={issLivePos} radius={2200000} pathOptions={{ color: 'var(--accent-secondary)', fillColor: 'var(--accent-secondary)', fillOpacity: 0.1, weight: 1 }} />
-                        <ChangeView center={issLivePos} zoom={followIss ? 4 : undefined} />
-                        <Marker position={issLivePos} icon={issIcon}>
-                          <Popup>ISS Telemetry Active</Popup>
-                        </Marker>
-                      </>
-                    )}
-                  </MapContainer>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>VELOCITY</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{Math.round(issTelemetry.vel)} km/h</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>ALTITUDE</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{Math.round(issTelemetry.alt)} km</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>VISIBILITY</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase' }}>{issTelemetry.vis}</div>
-                    </div>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: issTelemetry.vis === 'day' ? '#f59e0b' : '#1e293b', boxShadow: issTelemetry.vis === 'day' ? '0 0 10px #f59e0b' : 'none' }}></div>
-                  </div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'auto' }}>
-                    LAT: {issLivePos ? issLivePos[0].toFixed(2) : '--'} | LON: {issLivePos ? issLivePos[1].toFixed(2) : '--'}
-                  </div>
-                </div>
-              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}><div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.issLive}</div><button onClick={() => setFollowIss(!followIss)} className={`btn-faq ${followIss ? 'btn-primary' : ''}`} style={{ fontSize: '0.6rem' }}>{followIss ? 'FOLLOWING' : 'FREE'}</button></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}><div style={{ height: '180px', borderRadius:'16px', overflow:'hidden' }}><MapContainer center={[0, 0]} zoom={2} style={{ height: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><Polyline positions={issPath} color="var(--accent-primary)" weight={2} />{issLivePos && (<><Circle center={issLivePos} radius={2200000} pathOptions={{ color: 'var(--accent-secondary)', fillOpacity: 0.1 }} /><ChangeView center={issLivePos} zoom={followIss ? 4 : undefined} /><Marker position={issLivePos} icon={issIcon}><Popup>ISS active</Popup></Marker></>)}</MapContainer></div><div style={{ fontSize: '0.7rem' }}><div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '8px', marginBottom: '5px' }}>VEL: {Math.round(issTelemetry.vel)} km/h</div><div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '8px' }}>ALT: {Math.round(issTelemetry.alt)} km</div></div></div>
             </div>
           </div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: '#10b981' }}>Mag {c.mag}</span></div>))}</div></div>
-          <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap:'10px' }}>{sortedMeteors.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>
-          <section className="map-container card pollution-map" style={{ height: 'auto', minHeight: '600px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.darkSkyMap}</div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '4px 12px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800 }}>WORLD ATLAS 2015 DATA</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
-              <div style={{ height: '450px', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--glass-border)', position: 'relative' }}>
-                <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
-                  <TileLayer 
-                    url="https://tiles.lightpollutionmap.info/tiles/wa2015/{z}/{x}/{y}.png" 
-                    opacity={0.6} 
-                    maxZoom={8}
-                    attribution='&copy; <a href="https://www.lightpollutionmap.info">Jurij Stare</a> / Falchi et al.'
-                  />
-                  <ChangeView center={[location.lat, location.lon]} />
-                  <Marker position={[location.lat, location.lon]}><Popup>Observation Site</Popup></Marker>
-                </MapContainer>
-                
-                {/* Visual Legend Overlay on Map */}
-                <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000, background: 'rgba(15, 23, 42, 0.9)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)', fontSize: '0.6rem' }}>
-                  <div style={{ fontWeight: 800, marginBottom: '5px', textTransform: 'uppercase' }}>Bortle Scale</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {[
-                      { c: '#000000', l: '1' }, { c: '#000080', l: '2' }, { c: '#0000FF', l: '3' }, 
-                      { c: '#00FF00', l: '4' }, { c: '#FFFF00', l: '5' }, { c: '#FFA500', l: '6' }, 
-                      { c: '#FF0000', l: '7' }, { c: '#FFFFFF', l: '8-9' }
-                    ].map(item => (
-                      <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '12px', height: '12px', background: item.c, border: '1px solid rgba(255,255,255,0.2)' }}></div>
-                        <span>Class {item.l}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{t.bortleScale}</h3>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 1-2</div>
-                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle1} / {t.bortle2}</p>
-                  <div style={{ fontSize: '0.65rem', color: '#10b981' }}>SQM: 21.7 - 22.0</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 3-4</div>
-                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle3} / {t.bortle4}</p>
-                  <div style={{ fontSize: '0.65rem', color: '#3b82f6' }}>SQM: 20.4 - 21.7</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 5-7</div>
-                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle5} - {t.bortle7}</p>
-                  <div style={{ fontSize: '0.65rem', color: '#f59e0b' }}>SQM: 18.0 - 20.4</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 8-9</div>
-                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle8} / {t.bortle9}</p>
-                  <div style={{ fontSize: '0.65rem', color: '#ef4444' }}>SQM: &lt; 18.0</div>
-                </div>
-              </div>
-            </div>
+          <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap:'10px' }}>{METEOR_SHOWERS.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>
+          <section className="map-container card pollution-map" style={{ height: 'auto', minHeight: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}><div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.darkSkyMap}</div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1.5rem' }}><div style={{ height: '350px', borderRadius: '20px', overflow: 'hidden', position: 'relative' }}><MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><TileLayer url="https://tiles.lightpollutionmap.info/tiles/wa2015/{z}/{x}/{y}.png" opacity={0.7} attribution="© NASA GIBS" /><ChangeView center={[location.lat, location.lon]} /><Marker position={[location.lat, location.lon]} /></MapContainer></div><div style={{ fontSize: '0.75rem' }}><h3 style={{fontSize:'0.9rem'}}>{t.bortleScale}</h3><div style={{background:'rgba(255,255,255,0.02)', padding:'10px', borderRadius:'12px', border:'1px solid var(--glass-border)'}}><div style={{color:'#10b981', fontWeight:800}}>CLASS 1-2</div><p>{t.bortle1}</p></div><div style={{background:'rgba(255,255,255,0.02)', padding:'10px', borderRadius:'12px', border:'1px solid var(--glass-border)', marginTop:'10px'}}><div style={{color:'#f59e0b', fontWeight:800}}>CLASS 5-7</div><p>{t.bortle5}</p></div></div></div>
           </section>
           <section className="logbook card" style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <div>
-                <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}>
-                  <Calendar size={28} color="var(--accent-primary)" /> {t.nightPlan}
-                </h2>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
-                  SESSION STATS: {nightPlan.length} OBJECTS | {Math.round(nightPlan.length * 1.5)}h EST. INTEGRATION
-                </div>
-              </div>
-              <button className="btn-faq btn-primary" onClick={exportToPDF} style={{ padding: '10px 20px' }}>
-                <Send size={16} style={{ marginRight: '8px' }} /> {t.exportPDF}
-              </button>
-            </div>
-
-            <div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))' }}>
-              {nightPlan.map(id => {
-                const obj = allObjects.find(o => o.id === id);
-                if (!obj) return null;
-                const isVisible = obj.altitude > 0;
-                
-                return (
-                  <div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `4px solid ${isVisible ? '#10b981' : '#ef4444'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{obj.name}</h3>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>{obj.commonName[lang]}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: isVisible ? '#10b981' : '#ef4444' }}>{obj.altitude.toFixed(1)}°</div>
-                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', opacity: 0.6 }}>{isVisible ? 'Above Horizon' : 'Below Horizon'}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '1rem', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '8px' }}>
-                      <div>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Type</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{obj.type}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mag</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{obj.magnitude.toFixed(1)}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981' }}>{obj.recommendedFilter || 'None'}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent-secondary)' }}>Log & Technical Notes</div>
-                        <button onClick={() => setNightPlan(prev => prev.filter(oid => oid !== id))} className="btn-faq" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '2px 8px', fontSize: '0.6rem' }}>REMOVE</button>
-                      </div>
-                      <textarea 
-                        placeholder={t.notes} 
-                        value={observations[id] || ''} 
-                        onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} 
-                        style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: 'white', padding: '0.8rem', borderRadius: '12px', minHeight: '100px', outline: 'none', fontSize: '0.85rem', lineHeight: '1.5' }} 
-                      />
-                    </div>
-
-                    <button onClick={() => shareObservation(id)} className="btn-faq" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'var(--accent-secondary)' }}>
-                      <Share2 size={14} style={{ marginRight: '8px' }} /> {t.shareObservation}
-                    </button>
-                  </div>
-                )
-              })}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}><div><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}><Calendar size={28} color="var(--accent-primary)" /> {t.nightPlan}</h2><div style={{fontSize:'0.7rem', color:'var(--text-muted)'}}>STATS: {nightPlan.length} OBJECTS</div></div><button className="btn-faq btn-primary" onClick={exportToPDF}>{t.exportPDF}</button></div>
+            <div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))' }}>
+              {nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `4px solid ${obj.altitude > 0 ? '#10b981' : '#ef4444'}` }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><h3 style={{margin:0}}>{obj.name}</h3><div style={{fontSize:'0.7rem', color:'var(--text-muted)'}}>{obj.commonName[lang]}</div></div><div style={{fontSize:'0.9rem', fontWeight:800}}>{obj.altitude.toFixed(1)}°</div></div><textarea value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'white', padding: '0.5rem', borderRadius: '8px', marginTop:'10px', minHeight:'60px' }} /><button onClick={() => setNightPlan(p => p.filter(x => x !== id))} className="btn-faq" style={{width:'100%', marginTop:'10px', color:'#ef4444', borderColor:'rgba(239,68,68,0.2)'}}>REMOVE</button></div>) })}
             </div>
           </section>
-          <section className="object-list" style={{ marginTop: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}><Eye size={28} color="#8b5cf6" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} onClick={() => setSelectedObjectId(obj.id)}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div>{obj.recommendedFilter && <div style={{ marginTop: '4px', fontSize: '0.7rem', color: '#10b981' }}><Zap size={10}/> {t.recommendedFilter}: {obj.recommendedFilter}</div>}<div className="obj-meta" style={{ marginTop: '8px' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><div className="obj-meta" style={{ marginTop: '4px' }}>Az: {obj.azimuth.toFixed(0)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '8px', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
+          <section className="object-list" style={{ marginTop: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}><Eye size={28} color="#8b5cf6" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''}`} onClick={() => setSelectedObjectId(obj.id)} style={{borderLeftColor: selectedObjectId===obj.id?'var(--accent-primary)':''}}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div><div className="obj-meta" style={{ marginTop: '8px' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> • Mag {obj.magnitude}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '8px', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
         </>
       )}
       <footer style={{ marginTop: '4rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem', borderTop: '1px solid var(--glass-border)' }}><p>{t.footer}</p></footer>

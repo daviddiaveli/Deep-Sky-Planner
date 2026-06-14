@@ -201,6 +201,10 @@ export const TRANSLATIONS = {
     west: 'W',
     zenith: 'Zenith',
     horizon: 'Horizon',
+    celestialRegistry: 'Celestial Registry',
+    discovery: 'Discovery & History',
+    wikiLoading: 'Querying NASA/Wiki database...',
+    wikiError: 'Telemetry data not available.',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -344,5 +348,9 @@ export const TRANSLATIONS = {
     west: 'Z',
     zenith: 'Zenit',
     horizon: 'Obzor',
+    celestialRegistry: 'Nebeský registr',
+    discovery: 'Objev a historie',
+    wikiLoading: 'Dotazuji databázi NASA/Wiki...',
+    wikiError: 'Data telemetrie nejsou dostupná.',
   }
 }

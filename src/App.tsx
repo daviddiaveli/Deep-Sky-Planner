@@ -28,6 +28,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false); const [user, setUser] = useState<string | null>(null)
   const [isNightMode, setIsNightMode] = useState(localStorage.getItem('nightMode') === 'true')
   const [focalLength, setFocalLength] = useState(750); const [eyepiece, setEyepiece] = useState(25)
+  const [aperture, setAperture] = useState(150); const [eyepieceAfov, setEyepieceAfov] = useState(52)
   const [pixelSize, setPixelSize] = useState(3.76); const [apertureF, setApertureF] = useState(5.0)
   const [sensorW, setSensorW] = useState(6248); const [sensorH, setSensorH] = useState(4176)
   const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111'); const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
@@ -50,8 +51,13 @@ export default function App() {
   }
 
   const magnification = useMemo(() => Math.round(focalLength / (eyepiece || 1)), [focalLength, eyepiece])
-  const exitPupil = useMemo(() => (eyepiece / (focalLength / 100 || 1)).toFixed(1), [focalLength, eyepiece])
+  const exitPupil = useMemo(() => (eyepiece / (focalLength / aperture || 1)).toFixed(1), [eyepiece, focalLength, aperture])
   const imageScale = useMemo(() => ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2), [pixelSize, focalLength])
+
+  const dawesLimit = useMemo(() => (116 / (aperture || 1)).toFixed(2), [aperture])
+  const limitingMag = useMemo(() => (6.5 + 5 * Math.log10((aperture || 1) / 7)).toFixed(1), [aperture])
+  const lightGain = useMemo(() => Math.round(Math.pow((aperture || 1) / 7, 2)), [aperture])
+  const tfov = useMemo(() => (eyepieceAfov / (magnification || 1)).toFixed(2), [eyepieceAfov, magnification])
 
   const allObjects = useMemo(() => {
     try {
@@ -217,7 +223,55 @@ export default function App() {
             <div className="card"><div className="stat-label"><Eye size={18}/> {t.imaging}</div><div style={{borderRadius:'16px', overflow:'hidden', height:'260px', background:'#000'}}><iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" /></div></div>
           </div>
           <div className="grid-2-cols">
-            <div className="card"><div className="stat-label"><Sparkles size={18} /> {t.gearSimulator}</div><div style={{ display: 'flex', gap: '1rem' }}><div className="control-item"><label>F-len</label><input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" /></div><div className="control-item"><label>Eye</label><input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" /></div></div><p style={{marginTop:'0.5rem'}}>{magnification}x | {exitPupil}mm pupil</p></div>
+            <div className="card">
+              <div className="stat-label"><Sparkles size={18} /> {t.gearSimulator}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Aperture (mm)</label>
+                  <input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Focal (mm)</label>
+                  <input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>Eye (mm)</label>
+                  <input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+                <div className="control-item">
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>AFOV (°)</label>
+                  <input type="number" value={eyepieceAfov} onChange={e => setEyepieceAfov(parseInt(e.target.value))} className="ascom-input" style={{ width: '100%', fontSize: '0.8rem', padding: '6px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.magnification}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{magnification}x</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Pupil: {exitPupil}mm</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                  <div className="stat-label" style={{ fontSize: '0.6rem', marginBottom: '4px' }}>{t.tfov}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{tfov}°</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{(parseFloat(tfov)*60).toFixed(0)} arcmin</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.dawesLimit}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{dawesLimit}"</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.limitingMag}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{limitingMag} mag</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t.lightGain}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{lightGain}x</div>
+                </div>
+              </div>
+            </div>
             <div className="card"><div className="stat-label"><Globe size={18} /> {t.issLive}</div><div style={{ height: '120px', borderRadius:'12px', overflow:'hidden', border:'1px solid var(--glass-border)' }}><MapContainer center={[0,0]} zoom={1} style={{ height: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><ChangeView center={issLivePos || [0,0]}/>{issLivePos && <Marker position={issLivePos} icon={issIcon}><Popup>ISS</Popup></Marker>}</MapContainer></div></div>
           </div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: '#10b981' }}>Mag {c.mag}</span></div>))}</div></div>

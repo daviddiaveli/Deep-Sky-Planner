@@ -169,6 +169,12 @@ export const TRANSLATIONS = {
     optimal: 'Optimal',
     undersampled: 'Under-sampled',
     oversampled: 'Over-sampled',
+    aperture: 'Aperture (mm)',
+    eyepieceAfov: 'Eyepiece AFOV (°)',
+    tfov: 'True FOV',
+    dawesLimit: 'Resolving Power',
+    limitingMag: 'Limiting Mag',
+    lightGain: 'Light Gain',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -280,5 +286,11 @@ export const TRANSLATIONS = {
     optimal: 'Optimální',
     undersampled: 'Under-sampled',
     oversampled: 'Over-sampled',
+    aperture: 'Průměr objektivu (mm)',
+    eyepieceAfov: 'Zdánlivé pole okuláru (°)',
+    tfov: 'Reálné zorné pole',
+    dawesLimit: 'Rozlišovací mez',
+    limitingMag: 'Mezní magnituda',
+    lightGain: 'Světelný zisk',
   }
 }

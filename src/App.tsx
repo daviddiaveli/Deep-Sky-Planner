@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Telescope, BarChart3, Search, User, Activity, Share2, Camera, Map as MapIcon, Sun, Moon, Wind, Eye, Info, Zap, Sparkles, Globe, Send, Cloud, Calendar } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -120,7 +120,6 @@ export default function App() {
   const abortSlew = () => setIsSlewing(false)
   const syncMount = (ra: number, dec: number) => { setMountRa(ra); setMountDec(dec) }
 
-  const starMapData = useMemo(() => allObjects.filter(obj => obj.altitude > 0).map(obj => ({ name: obj.name, angle: obj.azimuth, radius: 90 - obj.altitude })), [allObjects])
   const recommendedCraters = useMemo(() => MOON_CRATERS.filter(c => Math.abs(c.age - moonAge) < 2.5), [moonAge])
   const sortedMeteors = useMemo(() => [...METEOR_SHOWERS].sort((a, b) => { const now = new Date(); const da = new Date(`${a.date} ${now.getFullYear()}`); const db = new Date(`${b.date} ${now.getFullYear()}`); if (da < now) da.setFullYear(now.getFullYear() + 1); if (db < now) db.setFullYear(now.getFullYear() + 1); return da.getTime() - db.getTime() }), [])
 
@@ -185,7 +184,100 @@ export default function App() {
             <section className="card"><div className="stat-label"><Activity size={16}/> {t.issFlyovers}</div><div style={{maxHeight:'60px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} style={{fontSize:'0.75rem', display:'flex', justifyContent:'space-between', marginBottom:'4px'}}><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span style={{color:'#10b981'}}>{p.maxAlt}°</span></div>)}</div></section>
           </div>
           <div className="grid-2-cols">
-            <div className="card" style={{height:'400px'}}><div className="stat-label"><MapIcon size={18} /> {t.starMap}</div><ResponsiveContainer><RadarChart data={starMapData}><PolarGrid stroke="rgba(255,255,255,0.05)"/><PolarAngleAxis dataKey="angle" tick={false}/><PolarRadiusAxis domain={[0,90]} tick={false} axisLine={false}/><Radar dataKey="radius" stroke="var(--accent-primary)" fill="var(--accent-primary)" fillOpacity={0.3}/><Tooltip content={({active, payload}) => (active && payload && payload.length) ? <div className="card" style={{padding:'4px 12px', fontSize:'0.7rem', border:'1px solid var(--accent-primary)'}}>{payload[0].payload.name}</div> : null}/></RadarChart></ResponsiveContainer></div>
+            <div className="card" style={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
+              <div className="stat-label"><MapIcon size={18} /> {t.starMap}</div>
+              <div style={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <svg width="100%" height="100%" viewBox="0 0 400 400" style={{ maxWidth: '350px' }}>
+                  {/* Background & Atmosphere */}
+                  <circle cx="200" cy="200" r="180" fill="rgba(15, 23, 42, 0.5)" stroke="var(--glass-border)" strokeWidth="1" />
+                  <radialGradient id="skyGradient">
+                    <stop offset="0%" stopColor="rgba(139, 92, 246, 0.1)" />
+                    <stop offset="100%" stopColor="transparent" />
+                  </radialGradient>
+                  <circle cx="200" cy="200" r="180" fill="url(#skyGradient)" />
+
+                  {/* Azimuth Grid (Rays) */}
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
+                    <line 
+                      key={angle}
+                      x1="200" y1="200"
+                      x2={200 + 180 * Math.cos((angle - 90) * Math.PI / 180)}
+                      y2={200 + 180 * Math.sin((angle - 90) * Math.PI / 180)}
+                      stroke="rgba(255,255,255,0.05)"
+                      strokeWidth="1"
+                    />
+                  ))}
+
+                  {/* Altitude Rings */}
+                  {[30, 60].map(alt => (
+                    <circle 
+                      key={alt}
+                      cx="200" cy="200" 
+                      r={180 * (1 - alt/90)}
+                      fill="none" 
+                      stroke="rgba(255,255,255,0.08)" 
+                      strokeDasharray="4 4"
+                    />
+                  ))}
+
+                  {/* Cardinal Points */}
+                  {[
+                    { a: 0, t: t.north }, { a: 90, t: t.east }, 
+                    { a: 180, t: t.south }, { a: 270, t: t.west }
+                  ].map(p => (
+                    <text
+                      key={p.a}
+                      x={200 + 195 * Math.cos((p.a - 90) * Math.PI / 180)}
+                      y={200 + 195 * Math.sin((p.a - 90) * Math.PI / 180)}
+                      fill="var(--accent-primary)"
+                      fontSize="12"
+                      fontWeight="900"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {p.t}
+                    </text>
+                  ))}
+
+                  {/* Objects */}
+                  {allObjects.filter(obj => obj.altitude > 0).map(obj => {
+                    const r = 180 * (1 - obj.altitude / 90);
+                    const angle = (obj.azimuth - 90) * Math.PI / 180;
+                    const x = 200 + r * Math.cos(angle);
+                    const y = 200 + r * Math.sin(angle);
+                    const isSelected = selectedObjectId === obj.id;
+                    const size = obj.type === 'Planet' ? 5 : Math.max(2, 6 - obj.magnitude / 2);
+
+                    return (
+                      <g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>
+                        {isSelected && (
+                          <circle cx={x} cy={y} r={size + 4} fill="none" stroke="var(--accent-primary)" strokeWidth="1">
+                            <animate attributeName="r" values={`${size+2};${size+8};${size+2}`} dur="2s" repeatCount="indefinite" />
+                            <animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" />
+                          </circle>
+                        )}
+                        <circle 
+                          cx={x} cy={y} r={size} 
+                          fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? '#3b82f6' : '#fff')} 
+                          opacity={isSelected ? 1 : 0.7}
+                        >
+                          <title>{obj.name} ({obj.altitude.toFixed(1)}°)</title>
+                        </circle>
+                        {isSelected && (
+                          <text x={x} y={y - 12} fill="white" fontSize="10" fontWeight="700" textAnchor="middle" style={{ pointerEvents: 'none', filter: 'drop-shadow(0 0 2px black)' }}>
+                            {obj.name}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+
+                  {/* Zenith Label */}
+                  <text x="200" y="195" fill="rgba(255,255,255,0.2)" fontSize="8" textAnchor="middle">{t.zenith}</text>
+                </svg>
+              </div>
+            </div>
+
             <div className="card">
               <div className="stat-label"><Camera size={18} /> {t.astroAsst}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>

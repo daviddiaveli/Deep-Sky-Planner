@@ -195,6 +195,12 @@ export const TRANSLATIONS = {
     bortle7: 'Suburban/urban transition',
     bortle8: 'City sky',
     bortle9: 'Inner-city sky',
+    north: 'N',
+    south: 'S',
+    east: 'E',
+    west: 'W',
+    zenith: 'Zenith',
+    horizon: 'Horizon',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -332,5 +338,11 @@ export const TRANSLATIONS = {
     bortle7: 'Přechod předměstí/město',
     bortle8: 'Městská obloha',
     bortle9: 'Centrum velkoměsta',
+    north: 'S',
+    south: 'J',
+    east: 'V',
+    west: 'Z',
+    zenith: 'Zenit',
+    horizon: 'Obzor',
   }
 }

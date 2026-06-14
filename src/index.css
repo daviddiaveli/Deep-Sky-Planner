@@ -297,6 +297,38 @@ body {
   backdrop-filter: blur(4px);
   z-index: 999;
 }
+/* Night Mode (Red Mode) Overrides */
+.night-mode {
+  --bg-deep: #000000;
+  --bg-card: rgba(30, 0, 0, 0.7);
+  --accent-primary: #ff0000;
+  --accent-secondary: #cc0000;
+  --text-main: #ff4444;
+  --text-muted: #880000;
+  --border-color: rgba(255, 0, 0, 0.2);
+  --glass-border: rgba(255, 0, 0, 0.1);
+  background-image: none !important;
+}
+
+.night-mode .leaflet-container, 
+.night-mode iframe,
+.night-mode .recharts-responsive-container {
+  filter: sepia(100%) saturate(300%) hue-rotate(-50deg) brightness(0.7) !important;
+}
+
+.night-mode .stat-value {
+  color: #ff0000 !important;
+}
+
+.night-mode .alt-badge {
+  background: rgba(255, 0, 0, 0.1) !important;
+  color: #ff0000 !important;
+}
+
+.night-mode .tab-btn.active {
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+}
+
 .faq-overlay {
   animation: fadeIn 0.3s ease-out;
   padding-bottom: 5rem;

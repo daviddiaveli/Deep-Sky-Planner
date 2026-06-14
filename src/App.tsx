@@ -69,8 +69,78 @@ export default function App() {
   useEffect(() => { const ps = []; let st = new Date(date); for (let i = 0; i < 3; i++) { st = new Date(st.getTime() + (Math.random() * 3 + 1) * 3600000); ps.push({ start: new Date(st), maxAlt: Math.floor(Math.random() * 60 + 20) }) }; setIssPasses(ps) }, [date])
 
   const exportToPDF = () => {
-    const doc = new jsPDF(); doc.text(t.title, 14, 20); const data = nightPlan.map(id => { const o = allObjects.find(x => x.id === id); return [o?.id || '', o?.commonName[lang] || '', `${o?.altitude.toFixed(1)}°`, observations[id] || ''] })
-    autoTable(doc, { startY: 30, head: [['ID', 'Name', 'Alt', 'Notes']], body: data }); doc.save('Plan.pdf')
+    const doc = new jsPDF()
+    const timestamp = date.toLocaleString()
+    
+    // Header
+    doc.setFillColor(15, 23, 42)
+    doc.rect(0, 0, 210, 40, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(22)
+    doc.text('DEEP SKY PLANNER', 14, 20)
+    doc.setFontSize(10)
+    doc.text('PROFESSIONAL OBSERVATION REPORT', 14, 30)
+    doc.text(`Generated: ${timestamp}`, 140, 20)
+    doc.text(`Location: ${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`, 140, 26)
+
+    // Statistics
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(12)
+    doc.text('NIGHT SUMMARY', 14, 50)
+    doc.setFontSize(9)
+    doc.text(`Total Objects: ${nightPlan.length}`, 14, 58)
+    doc.text(`Equipment: ${aperture}mm f/${apertureF} | Camera: ${sensorW}x${sensorH} (${pixelSize}um)`, 14, 64)
+    if (weatherData) {
+      doc.text(`Weather: Humidity ${weatherData.humidity}% | Cloud Cover ${weatherData.cloudcover}/8`, 110, 58)
+    }
+
+    const tableData = nightPlan.map(id => {
+      const o = allObjects.find(x => x.id === id)
+      // Recalculate local metrics for each object at export time
+      const scale = ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2)
+      const integration = o ? Math.max(1, Math.round(Math.pow(1.5, (o.magnitude <= 0 ? 5 : o.magnitude) - 5))) : '--'
+      
+      return [
+        o?.id || '',
+        o?.commonName[lang] || '',
+        o?.type || '',
+        `${o?.magnitude.toFixed(1)}`,
+        `${o?.altitude.toFixed(1)}°`,
+        `${scale}"`,
+        `~${integration}h`,
+        observations[id] || '-'
+      ]
+    })
+
+    autoTable(doc, {
+      startY: 75,
+      head: [['ID', 'Name', 'Type', 'Mag', 'Alt', 'Scale', 'Exp.Data', 'Notes']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [139, 92, 246], textColor: [255, 255, 255], fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 12 },
+        4: { cellWidth: 12 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 'auto' }
+      },
+      styles: { fontSize: 7, cellPadding: 3 }
+    })
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text(`Page ${i} of ${pageCount} | Deep Sky Planner Enterprise Edition | © 2026`, 14, 285)
+    }
+
+    doc.save(`DeepSkyPlan_${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   const magnification = useMemo(() => Math.round(focalLength / (eyepiece || 1)), [focalLength, eyepiece])
@@ -554,7 +624,76 @@ export default function App() {
               </div>
             </div>
           </section>
-          <section className="logbook card" style={{ marginTop: '1rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}><Calendar size={28} color="var(--accent-primary)" /> {t.nightPlan}</h2><button className="btn-faq btn-primary" onClick={exportToPDF}>{t.exportPDF}</button></div><div className="grid-list">{nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center' }}><h3>{obj.name} <span style={{fontWeight:400, color:'var(--text-muted)', fontSize:'0.8rem'}}>{obj.commonName[lang]}</span></h3><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => setNightPlan(prev => prev.filter(oid => oid !== id))} className="btn-faq" style={{borderColor:'#ef4444', color:'#ef4444', padding:'8px'}}>X</button></div></div><textarea placeholder={t.notes} value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'white', padding: '0.8rem', borderRadius: '12px', marginTop:'1rem', minHeight: '80px', outline:'none' }} /></div>)})}</div></section>
+          <section className="logbook card" style={{ marginTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}>
+                  <Calendar size={28} color="var(--accent-primary)" /> {t.nightPlan}
+                </h2>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
+                  SESSION STATS: {nightPlan.length} OBJECTS | {Math.round(nightPlan.length * 1.5)}h EST. INTEGRATION
+                </div>
+              </div>
+              <button className="btn-faq btn-primary" onClick={exportToPDF} style={{ padding: '10px 20px' }}>
+                <Send size={16} style={{ marginRight: '8px' }} /> {t.exportPDF}
+              </button>
+            </div>
+
+            <div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))' }}>
+              {nightPlan.map(id => {
+                const obj = allObjects.find(o => o.id === id);
+                if (!obj) return null;
+                const isVisible = obj.altitude > 0;
+                
+                return (
+                  <div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `4px solid ${isVisible ? '#10b981' : '#ef4444'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{obj.name}</h3>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>{obj.commonName[lang]}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: isVisible ? '#10b981' : '#ef4444' }}>{obj.altitude.toFixed(1)}°</div>
+                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', opacity: 0.6 }}>{isVisible ? 'Above Horizon' : 'Below Horizon'}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '1rem', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Type</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{obj.type}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mag</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{obj.magnitude.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981' }}>{obj.recommendedFilter || 'None'}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent-secondary)' }}>Log & Technical Notes</div>
+                        <button onClick={() => setNightPlan(prev => prev.filter(oid => oid !== id))} className="btn-faq" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '2px 8px', fontSize: '0.6rem' }}>REMOVE</button>
+                      </div>
+                      <textarea 
+                        placeholder={t.notes} 
+                        value={observations[id] || ''} 
+                        onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: 'white', padding: '0.8rem', borderRadius: '12px', minHeight: '100px', outline: 'none', fontSize: '0.85rem', lineHeight: '1.5' }} 
+                      />
+                    </div>
+
+                    <button onClick={() => shareObservation(id)} className="btn-faq" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'var(--accent-secondary)' }}>
+                      <Share2 size={14} style={{ marginRight: '8px' }} /> {t.shareObservation}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
           <section className="object-list" style={{ marginTop: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}><Eye size={28} color="#8b5cf6" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} onClick={() => setSelectedObjectId(obj.id)}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div>{obj.recommendedFilter && <div style={{ marginTop: '4px', fontSize: '0.7rem', color: '#10b981' }}><Zap size={10}/> {t.recommendedFilter}: {obj.recommendedFilter}</div>}<div className="obj-meta" style={{ marginTop: '8px' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><div className="obj-meta" style={{ marginTop: '4px' }}>Az: {obj.azimuth.toFixed(0)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '8px', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
         </>
       )}

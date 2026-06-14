@@ -583,5 +583,16 @@ select:focus, .search-input:focus {
 
 /* Leaflet Overrides */
 .leaflet-container {
+  background: #020617 !important;
+  border-radius: 12px;
+}
+
+/* Specific class for night-themed base maps */
+.dark-base-map {
   filter: invert(100%) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+/* Ensure data layers are never inverted */
+.pollution-map .leaflet-tile-pane {
+  filter: none !important;
 }

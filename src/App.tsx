@@ -32,6 +32,8 @@ export default function App() {
   const [pixelSize, setPixelSize] = useState(3.76); const [apertureF, setApertureF] = useState(5.0)
   const [sensorW, setSensorW] = useState(6248); const [sensorH, setSensorH] = useState(4176)
   const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111'); const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
+  const [mountRa, setMountRa] = useState(0); const [mountDec, setMountDec] = useState(0)
+  const [isSlewing, setIsSlewing] = useState(false); const [isTracking] = useState(true)
   const [location, setLocation] = useState({ lat: 50.0755, lon: 14.4378 }); const [date, setDate] = useState(new Date())
   const [selectedObjectId, setSelectedObjectId] = useState('M31'); const [selectedCat, setSelectedCat] = useState('all')
   const [searchQuery, setSearchQuery] = useState(''); const [showSuggestions, setShowSuggestions] = useState(false)
@@ -86,7 +88,16 @@ export default function App() {
 
   const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) setSharedPosts([{ id: Date.now(), user: user || 'Anon', object: obj.name, note: observations[id] || 'No notes.', time: 'Just now' }, ...sharedPosts]) }
   const connectTelescope = () => setIsTelescopeConnected(!isTelescopeConnected)
-  const slewTelescope = (ra: number, dec: number) => { if (isTelescopeConnected) alert(`Slewing to RA: ${ra.toFixed(2)}, DEC: ${dec.toFixed(2)}`) }
+  const slewTelescope = (ra: number, dec: number) => { 
+    if (!isTelescopeConnected) return
+    setIsSlewing(true)
+    setTimeout(() => {
+      setMountRa(ra); setMountDec(dec)
+      setIsSlewing(false)
+    }, 2000)
+  }
+  const abortSlew = () => setIsSlewing(false)
+  const syncMount = (ra: number, dec: number) => { setMountRa(ra); setMountDec(dec) }
 
   const starMapData = useMemo(() => allObjects.filter(obj => obj.altitude > 0).map(obj => ({ name: obj.name, angle: obj.azimuth, radius: 90 - obj.altitude })), [allObjects])
   const recommendedCraters = useMemo(() => MOON_CRATERS.filter(c => Math.abs(c.age - moonAge) < 2.5), [moonAge])
@@ -215,9 +226,52 @@ export default function App() {
                 {isTelescopeConnected && <button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary"><Send size={12}/></button>}
               </div>
               <div style={{height:'200px'}}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" fontSize={10} /><YAxis domain={[0,90]} fontSize={10} /><Tooltip /><Area dataKey="altitude" stroke="#8b5cf6" fillOpacity={0.3} /></AreaChart></ResponsiveContainer></div>
-              <div className="ascom-panel" style={{ marginTop: '1rem', background:'rgba(59,130,246,0.05)', padding:'12px', border:'1px solid rgba(59, 130, 246, 0.2)' }}>
-                <input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="ascom-input" style={{flexGrow:1}} />
-                <button onClick={connectTelescope} className="btn-faq">{isTelescopeConnected ? 'DC' : 'Conn'}</button>
+              <div className="ascom-panel" style={{ marginTop: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--accent-secondary)', padding: '1.2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={20} color={isTelescopeConnected ? "#10b981" : "#94a3b8"} className={isSlewing ? "animate-pulse" : ""} />
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>ASCOM ALPACA STATION</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTelescopeConnected ? '#10b981' : '#ef4444', boxShadow: isTelescopeConnected ? '0 0 10px #10b981' : 'none' }}></div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTracking ? '#3b82f6' : '#1e293b' }}></div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', fontFamily: 'monospace' }}>
+                  <div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>MOUNT RA</div>
+                    <div style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700 }}>{mountRa.toFixed(4)}h</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>MOUNT DEC</div>
+                    <div style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700 }}>{mountDec.toFixed(3)}°</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="ascom-input" style={{ flexGrow: 1, fontSize: '0.8rem' }} />
+                  <button onClick={connectTelescope} className={`btn-faq ${isTelescopeConnected ? 'btn-primary' : ''}`} style={{ fontSize: '0.7rem', padding: '6px 12px' }}>
+                    {isTelescopeConnected ? 'DISCONNECT' : 'CONNECT'}
+                  </button>
+                </div>
+
+                {isTelescopeConnected && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                    <button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary" style={{ width: '100%', fontSize: '0.65rem' }}>
+                      {isSlewing ? t.slewing : 'SLEW TARGET'}
+                    </button>
+                    <button onClick={() => syncMount(selectedObject.ra, selectedObject.dec)} className="btn-faq" style={{ width: '100%', fontSize: '0.65rem' }}>SYNC</button>
+                    <button onClick={abortSlew} className="btn-faq" style={{ width: '100%', fontSize: '0.65rem', borderColor: '#ef4444', color: '#ef4444' }}>ABORT</button>
+                  </div>
+                )}
+                
+                {isTelescopeConnected && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                    <span>{t.tracking}: <strong style={{color: isTracking ? '#10b981' : '#ef4444'}}>{isTracking ? 'ON' : 'OFF'}</strong></span>
+                    <span>Status: {isSlewing ? 'BUSY' : 'READY'}</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="card"><div className="stat-label"><Eye size={18}/> {t.imaging}</div><div style={{borderRadius:'16px', overflow:'hidden', height:'260px', background:'#000'}}><iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" /></div></div>

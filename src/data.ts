@@ -175,6 +175,13 @@ export const TRANSLATIONS = {
     dawesLimit: 'Resolving Power',
     limitingMag: 'Limiting Mag',
     lightGain: 'Light Gain',
+    mountPos: 'Mount Position',
+    tracking: 'Tracking',
+    park: 'Park',
+    abort: 'Abort',
+    sync: 'Sync',
+    slewing: 'Slewing...',
+    target: 'Target',
   },
   cz: {
     title: 'Hvězdný Plánovač',
@@ -292,5 +299,12 @@ export const TRANSLATIONS = {
     dawesLimit: 'Rozlišovací mez',
     limitingMag: 'Mezní magnituda',
     lightGain: 'Světelný zisk',
+    mountPos: 'Poloha montáže',
+    tracking: 'Sledování',
+    park: 'Parkovat',
+    abort: 'Zastavit',
+    sync: 'Synchronizovat',
+    slewing: 'Pohybuji se...',
+    target: 'Cíl',
   }
 }

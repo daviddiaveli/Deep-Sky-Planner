@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Telescope, MapPin, Calendar, Wind, Eye, Info, BarChart3, Globe, Search, Moon, Sun } from 'lucide-react'
+import { Telescope, MapPin, Calendar, Wind, Eye, Info, BarChart3, Globe, Search, Moon, Sun, Cloud, Send, User } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -39,9 +39,13 @@ function ChangeView({ center }: { center: [number, number] }) {
   return null
 }
 
-function App() {
+export default function App() {
   const [lang, setLang] = useState<'en' | 'cz'>('cz')
   const t = useMemo(() => TRANSLATIONS[lang], [lang])
+
+  const [activeView, setActiveView] = useState<'planner' | 'community'>('planner')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [user, setUser] = useState<string | null>(null)
 
   const [location, setLocation] = useState<{lat: number, lon: number}>({ lat: 50.0755, lon: 14.4378 })
   const [date, setDate] = useState(new Date())
@@ -60,41 +64,35 @@ function App() {
   const [showFAQ, setShowFAQ] = useState(false)
   const [issPasses, setIssPasses] = useState<any[]>([])
 
+  // ASCOM Alpaca State
+  const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111')
+  const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
+
   const planetNames = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
 
-  // ISS Flyovers Logic
+  const mockCommunityPosts = [
+    { id: 1, user: 'AstroDave', object: 'M42', note: 'Unbelievable detail in the trapezium tonight using OIII filter.', time: '2 hours ago' },
+    { id: 2, user: 'Stargazer99', object: 'NGC 869', note: 'Double cluster is perfectly positioned at zenith right now.', time: '5 hours ago' },
+    { id: 3, user: 'LunaWatcher', object: 'Jupiter', note: 'Great red spot transit visible! Seeing is 8/10.', time: '1 day ago' },
+  ]
+
+  // ISS Flyovers Logic (Mocked due to library limitations)
   useEffect(() => {
-    const fetchIssTle = async () => {
-      try {
-        const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle')
-        const tle = await response.text()
-        const lines = tle.split('\n').filter(l => l.trim())
-        if (lines.length >= 2) {
-          const observer = new Astronomy.Observer(location.lat, location.lon, 0)
-          const sat = new Astronomy.Satellite(lines[0], lines[1], lines[2] || lines[1]) // lines[0] is often name
-          
-          const passes = []
-          let searchTime = new Date(date)
-          for (let i = 0; i < 5; i++) { // Find next 5 passes
-            const pass = Astronomy.SearchRiseSet(sat, observer, 1, searchTime, 1)
-            if (pass) {
-              const maxAlt = Astronomy.SearchAltitude(sat, observer, 1, pass.date, 0.1, 0) // rough
-              passes.push({
-                start: pass.date,
-                duration: 5, // placeholder as SearchRiseSet doesn't give end directly easily without multiple calls
-                maxAlt: 60 // placeholder
-              })
-              searchTime = new Date(pass.date.getTime() + 90 * 60 * 1000)
-            } else break
-          }
-          setIssPasses(passes)
-        }
-      } catch (err) {
-        console.warn("ISS TLE fetch failed", err)
+    const fetchIssTle = () => {
+      const passes = []
+      let searchTime = new Date(date)
+      for (let i = 0; i < 3; i++) {
+        searchTime = new Date(searchTime.getTime() + (Math.random() * 3 + 1) * 60 * 60 * 1000)
+        passes.push({
+          start: searchTime,
+          duration: Math.floor(Math.random() * 5 + 3),
+          maxAlt: Math.floor(Math.random() * 60 + 20)
+        })
       }
+      setIssPasses(passes.sort((a, b) => a.start.getTime() - b.start.getTime()))
     }
-    if (location) fetchIssTle()
-  }, [location])
+    fetchIssTle()
+  }, [location, date])
 
   // PDF Export Logic
   const exportToPDF = () => {
@@ -125,6 +123,34 @@ function App() {
     })
 
     doc.save(`DeepSkyPlan_${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
+  // ASCOM Telescope Control
+  const connectTelescope = async () => {
+    // Mock connection logic (in a real app, this would ping the Alpaca API)
+    setIsTelescopeConnected(!isTelescopeConnected)
+  }
+
+  const slewTelescope = async (ra: number, dec: number) => {
+    if (!isTelescopeConnected) return
+    try {
+      const url = `http://${telescopeIp}/api/v1/telescope/0/slewtocoordinatesasync`
+      const params = new URLSearchParams()
+      params.append('RightAscension', ra.toString())
+      params.append('Declination', dec.toString())
+      params.append('ClientID', '1')
+      params.append('ClientTransactionID', '1')
+
+      await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+      alert(`Slewing telescope to RA: ${ra.toFixed(2)}, DEC: ${dec.toFixed(2)}`)
+    } catch (e) {
+      console.warn('Alpaca Slew Failed (Expected if no local server is running):', e)
+      alert(`Mock: Slewing telescope to RA: ${ra.toFixed(2)}, DEC: ${dec.toFixed(2)}`)
+    }
   }
 
   // Core calculations and Planets data
@@ -219,9 +245,8 @@ function App() {
       const observer = new Astronomy.Observer(location.lat, location.lon, 0)
       const astroTime = new Astronomy.AstroTime(date)
       setMoonPhase(Astronomy.MoonPhase(astroTime))
-      const nextRise = Astronomy.SearchRiseSet('Sun' as any, observer, 1, astroTime, 1)
-      const nextSet = Astronomy.SearchRiseSet('Sun' as any, observer, -1, astroTime, 1)
       
+      const nextSet = Astronomy.SearchRiseSet('Sun' as any, observer, -1, astroTime, 1)
       if (nextSet) {
         const setDateVal = (nextSet as any).date || nextSet
         setSunSet(setDateVal)
@@ -288,9 +313,31 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <>
+          <div className="overlay" onClick={() => setShowAuthModal(false)}></div>
+          <div className="auth-modal">
+            <h2><Cloud size={24} color="#8b5cf6" style={{ verticalAlign: 'middle', marginRight: '8px' }} /> {t.loginSync}</h2>
+            <p style={{ color: 'var(--text-muted)' }}>Příhlaste se pro synchronizaci svého logbooku pomocí Supabase (Ukázka).</p>
+            <input type="email" placeholder="Email" className="ascom-input" style={{ width: '100%', marginBottom: '1rem' }} />
+            <input type="password" placeholder="Password" className="ascom-input" style={{ width: '100%', marginBottom: '1rem' }} />
+            <button className="btn-faq" style={{ width: '100%', justifyContent: 'center' }} onClick={() => {
+              setUser('AstroUser')
+              setShowAuthModal(false)
+            }}>{t.loginSync}</button>
+          </div>
+        </>
+      )}
+
       <header className="header">
         <div className="header-left"><Telescope size={40} color="#8b5cf6" /><h1>{t.title}</h1></div>
         <div className="lang-switch" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {user ? (
+            <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9rem' }}><User size={16} style={{ verticalAlign: 'middle' }}/> {user}</span>
+          ) : (
+            <button className="btn-faq" onClick={() => setShowAuthModal(true)}><Cloud size={18} /> {t.loginSync}</button>
+          )}
           <button className="btn-faq" onClick={() => setShowFAQ(true)}><Info size={18} /> {t.faq}</button>
           <div style={{ display: 'flex', gap: '4px', background: 'rgba(15, 23, 42, 0.6)', padding: '4px', borderRadius: '12px' }}>
             <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
@@ -298,6 +345,12 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Main View Tabs */}
+      <div className="view-tabs">
+        <button className={`view-tab ${activeView === 'planner' ? 'active' : ''}`} onClick={() => setActiveView('planner')}>{t.planner}</button>
+        <button className={`view-tab ${activeView === 'community' ? 'active' : ''}`} onClick={() => setActiveView('community')}>{t.community}</button>
+      </div>
 
       {showFAQ ? (
         <section className="faq-overlay">
@@ -311,6 +364,23 @@ function App() {
             <div className="card faq-card"><h3><BarChart3 size={20} /> {t.faq_q5}</h3><p>{t.faq_a5}</p></div>
             <div className="card faq-card"><h3><Info size={20} /> {t.faq_q6}</h3><p>{t.faq_a6}</p></div>
           </div>
+        </section>
+      ) : activeView === 'community' ? (
+        <section className="community-feed">
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ color: '#8b5cf6' }}><Globe size={24} style={{ verticalAlign: 'middle' }}/> Global Observations</h2>
+            <p style={{ color: 'var(--text-muted)' }}>See what other astronomers are looking at right now.</p>
+          </div>
+          {mockCommunityPosts.map(post => (
+            <div key={post.id} className="feed-item">
+              <div className="feed-header">
+                <span style={{ fontWeight: 600, color: 'white' }}><User size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }}/> {post.user}</span>
+                <span>{post.time}</span>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#3b82f6' }}>{post.object}</h3>
+              <p style={{ margin: 0, lineHeight: 1.6 }}>{post.note}</p>
+            </div>
+          ))}
         </section>
       ) : (
         <>
@@ -338,6 +408,29 @@ function App() {
             </div>
           </section>
 
+          {/* ASCOM Panel */}
+          <div className="ascom-panel">
+            <Telescope size={24} color="#3b82f6" />
+            <div style={{ flexGrow: 1 }}>
+              <div style={{ fontWeight: 600 }}>{t.telescopeControl}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.ipAddress}</div>
+            </div>
+            <input 
+              type="text" 
+              className="ascom-input" 
+              value={telescopeIp} 
+              onChange={e => setTelescopeIp(e.target.value)} 
+              disabled={isTelescopeConnected}
+            />
+            <button 
+              className="btn-faq" 
+              style={{ background: isTelescopeConnected ? '#ef4444' : 'rgba(59, 130, 246, 0.2)', borderColor: isTelescopeConnected ? '#ef4444' : '#3b82f6', color: isTelescopeConnected ? 'white' : '#3b82f6' }}
+              onClick={connectTelescope}
+            >
+              {isTelescopeConnected ? t.disconnect : t.connect}
+            </button>
+          </div>
+
           <div className="dashboard">
             <section className="card"><div className="stat-label"><MapPin size={16} /> {t.location}</div><div className="stat-value">{location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°</div></section>
             <section className="card"><div className="stat-label"><Moon size={16} /> {t.moonPhase}</div><div className="stat-value">{moonPhase.toFixed(0)}°</div><p style={{ margin: 0, color: 'var(--text-muted)' }}>{moonPhase > 180 ? 'Waning' : 'Waxing'}</p></section>
@@ -360,10 +453,21 @@ function App() {
                 )) : <p style={{ margin: 0, fontSize: '0.8rem' }}>{t.iss_none}</p>}
               </div>
             </section>
-            </div>
+          </div>
+
           <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             <div className="chart-container card" style={{ margin: 0 }}>
-              <div className="chart-header"><h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><BarChart3 size={24} color="#8b5cf6" /> {selectedObject?.name}</h2><span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span></div>
+              <div className="chart-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><BarChart3 size={24} color="#8b5cf6" /> {selectedObject?.name}</h2>
+                  {isTelescopeConnected && (
+                    <button className="btn-slew" onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)}>
+                      <Send size={14} /> {t.slewTo}
+                    </button>
+                  )}
+                </div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.altitudeChart}</span>
+              </div>
               <div style={{ height: '300px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
@@ -405,7 +509,15 @@ function App() {
                 if (!obj) return null
                 return (
                   <div key={obj.id} className="card" style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><h3>{obj.name} - {obj.commonName[lang]}</h3><button onClick={() => setNightPlan(prev => prev.filter(id => id !== objId))} className="lang-btn" style={{ color: '#ef4444' }}>{t.removeFromPlan}</button></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <h3>{obj.name} - {obj.commonName[lang]}</h3>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {isTelescopeConnected && (
+                          <button onClick={() => slewTelescope(obj.ra, obj.dec)} className="btn-slew"><Send size={12}/></button>
+                        )}
+                        <button onClick={() => setNightPlan(prev => prev.filter(id => id !== objId))} className="lang-btn" style={{ color: '#ef4444' }}>{t.removeFromPlan}</button>
+                      </div>
+                    </div>
                     <textarea placeholder={t.notes} value={observations[objId] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [objId]: e.target.value }))} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '0.5rem', borderRadius: '8px', marginTop: '1rem', minHeight: '80px' }} />
                   </div>
                 )
@@ -425,7 +537,16 @@ function App() {
                 <div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} onClick={() => setSelectedObjectId(obj.id)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div><div className="obj-meta" style={{ marginTop: '0.8rem' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div></div>
-                    <div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div>
+                      <div className="obj-meta" style={{ marginTop: '0.5rem' }}>{t.az}: {obj.azimuth.toFixed(0)}°</div>
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '0.5rem' }}>
+                        {isTelescopeConnected && (
+                          <button onClick={(e) => { e.stopPropagation(); slewTelescope(obj.ra, obj.dec) }} className="btn-slew" style={{ width: 'auto' }}><Send size={12}/></button>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -438,5 +559,3 @@ function App() {
     </div>
   )
 }
-
-export default App

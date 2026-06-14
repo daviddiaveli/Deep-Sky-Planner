@@ -400,6 +400,12 @@ h1, h2, h3, h4 {
   gap: 1rem;
 }
 
-.feed-item {
-  border: 1px solid var(--border-color);
+.iss-icon div {
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
 }

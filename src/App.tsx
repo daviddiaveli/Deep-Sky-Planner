@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Telescope, BarChart3, Search, User, Activity, Share2, Camera, Map as MapIcon, Sun, Moon, Wind, Eye, Info, Zap, Sparkles, Globe, Send, Cloud, Calendar } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import jsPDF from 'jspdf'
@@ -16,9 +16,9 @@ const issIcon = L.divIcon({ className: 'iss-icon', html: "<div style='background
 
 interface VisibleObject extends DeepSkyObject { altitude: number; azimuth: number; }
 
-function ChangeView({ center, zoom }: { center: [number, number], zoom?: number }) {
+function ChangeView({ center, zoom }: { center: [number, number] | null, zoom?: number }) {
   const map = useMap()
-  useEffect(() => { if (center && center[0] !== 0) map.setView(center, zoom || map.getZoom(), { animate: true }) }, [center, zoom, map])
+  useEffect(() => { if (center) map.setView(center, zoom || map.getZoom(), { animate: true }) }, [center, zoom, map])
   return null
 }
 
@@ -41,10 +41,31 @@ export default function App() {
   const [astroTwilight, setAstroTwilight] = useState<Date | null>(null); const [weatherData, setWeatherData] = useState<any>(null)
   const [nightPlan, setNightPlan] = useState<string[]>([]); const [observations, setObservations] = useState<Record<string, string>>({})
   const [showFAQ, setShowFAQ] = useState(false); const [issPasses, setIssPasses] = useState<any[]>([])
-  const [issLivePos, setIssLivePos] = useState<[number, number]>([0, 0]); const [sharedPosts, setSharedPosts] = useState([{ id: 1, user: 'AstroDave', object: 'M42', note: 'Trapezium detail!', time: '2 hours ago' }])
+  const [issLivePos, setIssLivePos] = useState<[number, number] | null>(null)
+  const [issTelemetry, setIssTelemetry] = useState({ alt: 0, vel: 0, vis: 'day' })
+  const [issPath, setIssPath] = useState<[number, number][]>([])
+  const [followIss, setFollowIss] = useState(true)
+  const [sharedPosts, setSharedPosts] = useState([{ id: 1, user: 'AstroDave', object: 'M42', note: 'Trapezium detail!', time: '2 hours ago' }])
 
   useEffect(() => { localStorage.setItem('nightMode', isNightMode.toString()) }, [isNightMode])
-  useEffect(() => { const f = async () => { try { const r = await fetch('https://api.open-notify.org/iss-now.json'); const d = await r.json(); if (d?.iss_position) setIssLivePos([parseFloat(d.iss_position.latitude), parseFloat(d.iss_position.longitude)]) } catch (e) {} }; f(); const tm = setInterval(f, 5000); return () => clearInterval(tm) }, [])
+  useEffect(() => { 
+    const f = async () => { 
+      try { 
+        const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544')
+        const d = await r.json()
+        if (d?.latitude !== undefined) {
+          const newPos: [number, number] = [d.latitude, d.longitude]
+          setIssLivePos(newPos)
+          setIssTelemetry({ alt: d.altitude, vel: d.velocity, vis: d.visibility })
+          setIssPath(prev => {
+            const updated = [...prev, newPos]
+            return updated.length > 50 ? updated.slice(1) : updated
+          })
+        }
+      } catch (e) {} 
+    }
+    f(); const tm = setInterval(f, 5000); return () => clearInterval(tm) 
+  }, [])
   useEffect(() => { const ps = []; let st = new Date(date); for (let i = 0; i < 3; i++) { st = new Date(st.getTime() + (Math.random() * 3 + 1) * 3600000); ps.push({ start: new Date(st), maxAlt: Math.floor(Math.random() * 60 + 20) }) }; setIssPasses(ps) }, [date])
 
   const exportToPDF = () => {
@@ -326,7 +347,53 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div className="card"><div className="stat-label"><Globe size={18} /> {t.issLive}</div><div style={{ height: '120px', borderRadius:'12px', overflow:'hidden', border:'1px solid var(--glass-border)' }}><MapContainer center={[0,0]} zoom={1} style={{ height: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><ChangeView center={issLivePos || [0,0]}/>{issLivePos && <Marker position={issLivePos} icon={issIcon}><Popup>ISS</Popup></Marker>}</MapContainer></div></div>
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.issLive}</div>
+                <button onClick={() => setFollowIss(!followIss)} className={`btn-faq ${followIss ? 'btn-primary' : ''}`} style={{ fontSize: '0.6rem', padding: '4px 8px' }}>
+                  {followIss ? 'FOLLOWING' : 'FREE CAM'}
+                </button>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}>
+                <div style={{ height: '220px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                  <MapContainer center={[0, 0]} zoom={2} style={{ height: '100%' }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
+                    <Polyline positions={issPath} color="var(--accent-primary)" weight={2} opacity={0.6} dashArray="5, 10" />
+                    {issLivePos && (
+                      <>
+                        <Circle center={issLivePos} radius={2200000} pathOptions={{ color: 'var(--accent-secondary)', fillColor: 'var(--accent-secondary)', fillOpacity: 0.1, weight: 1 }} />
+                        <ChangeView center={issLivePos} zoom={followIss ? 4 : undefined} />
+                        <Marker position={issLivePos} icon={issIcon}>
+                          <Popup>ISS Telemetry Active</Popup>
+                        </Marker>
+                      </>
+                    )}
+                  </MapContainer>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>VELOCITY</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{Math.round(issTelemetry.vel)} km/h</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>ALTITUDE</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>{Math.round(issTelemetry.alt)} km</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>VISIBILITY</div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase' }}>{issTelemetry.vis}</div>
+                    </div>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: issTelemetry.vis === 'day' ? '#f59e0b' : '#1e293b', boxShadow: issTelemetry.vis === 'day' ? '0 0 10px #f59e0b' : 'none' }}></div>
+                  </div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'auto' }}>
+                    LAT: {issLivePos ? issLivePos[0].toFixed(2) : '--'} | LON: {issLivePos ? issLivePos[1].toFixed(2) : '--'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: '#10b981' }}>Mag {c.mag}</span></div>))}</div></div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap:'10px' }}>{sortedMeteors.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>

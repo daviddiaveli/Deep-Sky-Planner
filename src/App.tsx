@@ -10,19 +10,8 @@ import autoTable from 'jspdf-autotable'
 import { MESSIER_CATALOG, TRANSLATIONS, METEOR_SHOWERS, BRIGHT_COMETS, MOON_CRATERS, type DeepSkyObject } from './data'
 import './index.css'
 
-L.Marker.prototype.options.icon = L.icon({ 
-    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', 
-    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', 
-    iconSize: [25, 41], 
-    iconAnchor: [12, 41] 
-})
-
-const issIcon = L.divIcon({ 
-    className: 'iss-icon', 
-    html: "<div style='background:#ff0000; width:12px; height:12px; border-radius:50%; box-shadow: 0 0 15px #ff0000; border: 2px solid white;'></div>", 
-    iconSize: [12, 12], 
-    iconAnchor: [6, 6] 
-})
+L.Marker.prototype.options.icon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] })
+const issIcon = L.divIcon({ className: 'iss-icon', html: "<div style='background:#ff0000; width:12px; height:12px; border-radius:50%; box-shadow: 0 0 15px #ff0000; border: 2px solid white;'></div>", iconSize: [12, 12], iconAnchor: [6, 6] })
 
 interface VisibleObject extends DeepSkyObject { altitude: number; azimuth: number; }
 
@@ -140,173 +129,204 @@ export default function App() {
     return d
   }, [selectedObjectId, location, allObjects, date])
 
-  if (allObjects.length === 0) return <div className="app-container" style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center'}}><h2>Initializing Deep Sky Station...</h2></div>
+  if (allObjects.length === 0) return <div className="app-container flex items-center justify-center"><h2>INITIALIZING DEEP SKY STATION...</h2></div>
 
   return (
     <div className={`app-container ${isNightMode ? 'night-mode' : ''}`}>
       <div className="mission-bar">
-        <span>MISSION STATUS: <strong style={{color:'var(--accent-success)'}}>ACTIVE</strong></span>
+        <span>MISSION STATUS: <strong className="text-success">ACTIVE</strong></span>
         <span>{date.toUTCString()}</span>
         <span>VERSION 2.2 ENTERPRISE</span>
       </div>
 
-      {showAuthModal && (<><div className="overlay" onClick={() => setShowAuthModal(false)}></div><div className="auth-modal card animate-fadeIn"><h2><Cloud size={24} color="var(--accent-primary)" /> {t.loginSync}</h2><button className="btn-faq btn-primary" style={{width:'100%', marginTop:'1rem'}} onClick={() => { setUser('AstroUser'); setShowAuthModal(false) }}>Login</button></div></>)}
+      {showAuthModal && (
+        <>
+          <div className="overlay" onClick={() => setShowAuthModal(false)}></div>
+          <div className="modal card">
+            <h2 className="flex items-center justify-center gap-2 mb-4 text-primary"><Cloud /> {t.loginSync}</h2>
+            <button className="btn btn-primary w-full" onClick={() => { setUser('AstroUser'); setShowAuthModal(false) }}>Login</button>
+          </div>
+        </>
+      )}
       
-      <header className="header animate-fadeIn">
-        <div className="header-left">
-          <div style={{background:'var(--accent-primary)', padding:'10px', borderRadius:'15px', boxShadow:'0 0 20px var(--accent-glow)'}}><Telescope size={32} color="white" /></div>
-          <h1>{t.title}</h1>
+      <header className="header-area">
+        <div className="flex items-center gap-4">
+          <div className="app-logo"><Telescope size={32} color="white" /></div>
+          <div>
+            <h1 className="text-2xl font-black m-0">{t.title}</h1>
+            <div className="text-xs font-bold text-muted uppercase mt-4">Professional Astronomy Tools</div>
+          </div>
         </div>
-        <div className="lang-switch">
-          <button className={`btn-faq ${isNightMode ? 'active' : ''}`} onClick={() => setIsNightMode(!isNightMode)} style={{ background: isNightMode ? '#ff0000' : '', color: isNightMode ? 'white' : '' }}><Activity size={18} /> {t.nightMode}</button>
-          {user ? <div className="btn-faq" style={{borderColor:'var(--accent-success)'}}><User size={16} /> {user}</div> : <button className="btn-faq" onClick={() => setShowAuthModal(true)}><Cloud size={16} /> Cloud</button>}
-          <button className="btn-faq" onClick={() => setShowFAQ(true)}><Info size={16} /> FAQ</button>
-          <div className="tabs-container" style={{marginBottom:0}}><button className={lang==='en'?'active':''} onClick={()=>setLang('en')}>EN</button><button className={lang==='cz'?'active':''} onClick={()=>setLang('cz')}>CZ</button></div>
+        <div className="header-controls">
+          <button className={`btn ${isNightMode ? 'btn-primary' : ''}`} onClick={() => setIsNightMode(!isNightMode)}><Activity size={16} /> {t.nightMode}</button>
+          {user ? <div className="btn" style={{borderColor:'var(--accent-success)'}}><User size={16} /> {user}</div> : <button className="btn" onClick={() => setShowAuthModal(true)}><Cloud size={16} /> Cloud</button>}
+          <button className="btn" onClick={() => setShowFAQ(true)}><Info size={16} /> FAQ</button>
+          <div className="flex bg-dark rounded-md p-4" style={{padding:'2px'}}>
+            <button className={`btn ${lang==='en'?'bg-light':''}`} style={{border:'none', padding:'4px 8px'}} onClick={()=>setLang('en')}>EN</button>
+            <button className={`btn ${lang==='cz'?'bg-light':''}`} style={{border:'none', padding:'4px 8px'}} onClick={()=>setLang('cz')}>CZ</button>
+          </div>
         </div>
       </header>
 
-      <div className="view-tabs">
-        <button className={`view-tab ${activeView === 'planner' ? 'active' : ''}`} onClick={() => setActiveView('planner')}>{t.planner}</button>
-        <button className={`view-tab ${activeView === 'community' ? 'active' : ''}`} onClick={() => setActiveView('community')}>{t.community}</button>
+      <div className="tabs">
+        <button className={`tab ${activeView === 'planner' ? 'active' : ''}`} onClick={() => setActiveView('planner')}>{t.planner}</button>
+        <button className={`tab ${activeView === 'community' ? 'active' : ''}`} onClick={() => setActiveView('community')}>{t.community}</button>
       </div>
 
       {showFAQ ? (
-        <section className="faq-overlay animate-fadeIn"><div className="faq-header"><h2>{t.faq}</h2><button className="btn-faq" onClick={() => setShowFAQ(false)}>{t.backToApp}</button></div><div className="faq-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(400px, 1fr))', gap:'1.5rem'}}>{[1,2,3,4,5,6].map(i => <div key={i} className="card"><h3><Info size={18} color="var(--accent-primary)"/> {(t as any)[`faq_q${i}`]}</h3><p style={{fontSize:'0.85rem', lineHeight:1.6}}>{(t as any)[`faq_a${i}`]}</p></div>)}</div></section>
+        <section>
+          <div className="flex items-center justify-between mb-4"><h2>{t.faq}</h2><button className="btn" onClick={() => setShowFAQ(false)}>{t.backToApp}</button></div>
+          <div className="grid-main">{[1,2,3,4,5,6].map(i => <div key={i} className="card"><h3 className="flex items-center gap-2 text-primary mb-2"><Info size={18}/> {(t as any)[`faq_q${i}`]}</h3><p className="text-sm m-0 text-muted">{(t as any)[`faq_a${i}`]}</p></div>)}</div>
+        </section>
       ) : activeView === 'community' ? (
-        <section className="community-feed animate-fadeIn"><div style={{ textAlign: 'center', marginBottom: '2rem' }}><h2 style={{ color: 'var(--accent-primary)' }}><Globe size={24} /> Global Feed</h2></div>{sharedPosts.map(p => <div key={p.id} className="feed-item card" style={{marginBottom:'1rem'}}><h4><User size={14}/> {p.user} <span style={{fontWeight:400, color:'var(--text-muted)', marginLeft:'10px'}}>{p.time}</span></h4><p><strong>{p.object}:</strong> {p.note}</p></div>)}</section>
+        <section>
+          <div className="text-center mb-4"><h2 className="text-primary flex items-center justify-center gap-2"><Globe size={24} /> Global Feed</h2></div>
+          <div className="grid-main">{sharedPosts.map(p => <div key={p.id} className="card" style={{borderLeft:'4px solid var(--accent-secondary)'}}><h4 className="flex items-center gap-2 m-0 mb-2"><User size={14}/> {p.user} <span className="text-xs text-muted font-bold ml-auto">{p.time}</span></h4><p className="text-lg font-bold m-0 mb-2">{p.object}</p><p className="text-sm m-0">{p.note}</p></div>)}</div>
+        </section>
       ) : (
         <>
-          <section className="hero-search animate-fadeIn">
-            <div className="tabs-container">{['all', 'galaxies', 'clusters', 'nebulae', 'planets'].map(c => <button key={c} className={`tab-btn ${selectedCat === c ? 'active' : ''}`} onClick={() => setSelectedCat(c)}>{(t as any)[`cat_${c}`]}</button>)}</div>
-            <div className="search-wrapper"><Search className="search-icon-hero" size={28} /><input className="hero-search-input" placeholder={t.searchPlaceholder} value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true) }} onFocus={() => setShowSuggestions(true)} />{showSuggestions && suggestions.length > 0 && (<ul className="suggestions-list">{suggestions.map(o => <li key={o.id} className="suggestion-item" onClick={() => { setSelectedObjectId(o.id); setShowSuggestions(false) }}><div><span style={{fontWeight:800}}>{o.name}</span><span style={{fontSize:'0.7rem', color:'var(--text-muted)', marginLeft:'10px'}}>{o.commonName[lang]}</span></div><span style={{fontSize:'0.65rem', color:'var(--accent-primary)', fontWeight:700, textTransform:'uppercase'}}>{o.type}</span></li>)}</ul>)}</div></section>
-          <div className="dashboard animate-fadeIn">
-            <section className="card"><div className="stat-label"><Sun size={14}/> {t.sunTimes}</div><div className="stat-value">{sunSet?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>Night: {astroTwilight?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p></section>
-            <section className="card"><div className="stat-label"><Moon size={14}/> {t.moonAsst}</div><div className="stat-value">{moonAge.toFixed(1)}d</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{moonPhase.toFixed(0)}° Ph | {recommendedCraters.length} craters</p></section>
-            <section className="card"><div className="stat-label"><Wind size={14}/> {t.weather}</div><div className="stat-value" style={{color: (weatherData?.cloudcover||0)<2?'var(--accent-success)':'var(--accent-warning)'}}>{(weatherData?.cloudcover||0)<2?t.clear:t.cloudCover}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{weatherData?.humidity}% Hum | {weatherData?.cloudcover}/8 Cloud</p></section>
-            <section className="card"><div className="stat-label"><Activity size={14}/> {t.issFlyovers}</div><div style={{maxHeight:'60px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} style={{fontSize:'0.75rem', display:'flex', justifyContent:'space-between', marginBottom:'4px'}}><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span style={{color:'var(--accent-success)', fontWeight:700}}>{p.maxAlt}°</span></div>)}</div></section>
+          <section className="search-wrapper">
+            <div className="flex justify-center gap-2 mb-4 flex-wrap">{['all', 'galaxies', 'clusters', 'nebulae', 'planets'].map(c => <button key={c} className={`badge ${selectedCat === c ? 'bg-light text-primary border-b' : ''}`} style={{border:'none', cursor:'pointer'}} onClick={() => setSelectedCat(c)}>{(t as any)[`cat_${c}`]}</button>)}</div>
+            <div style={{position: 'relative'}}>
+              <Search className="search-icon" size={24} />
+              <input className="search-input" placeholder={t.searchPlaceholder} value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true) }} onFocus={() => setShowSuggestions(true)} />
+              {showSuggestions && suggestions.length > 0 && (<div className="suggestions">{suggestions.map(o => <div key={o.id} className="suggestion-item" onClick={() => { setSelectedObjectId(o.id); setShowSuggestions(false) }}><div className="flex items-center gap-3"><span className="font-bold">{o.name}</span><span className="text-xs text-muted">{o.commonName[lang]}</span></div><span className="text-xs text-primary font-bold uppercase">{o.type}</span></div>)}</div>)}
+            </div>
+          </section>
+
+          <div className="grid-dash">
+            <div className="card"><div className="card-title"><Sun size={14}/> {t.sunTimes}</div><div className="text-xl font-black">{sunSet?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div><p className="text-xs text-muted m-0 mt-4">Night: {astroTwilight?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p></div>
+            <div className="card"><div className="card-title"><Moon size={14}/> {t.moonAsst}</div><div className="text-xl font-black">{moonAge.toFixed(1)}d</div><p className="text-xs text-muted m-0 mt-4">{moonPhase.toFixed(0)}° Ph | {recommendedCraters.length} craters</p></div>
+            <div className="card"><div className="card-title"><Wind size={14}/> {t.weather}</div><div className={`text-xl font-black ${(weatherData?.cloudcover||0)<2?'text-success':'text-warning'}`}>{(weatherData?.cloudcover||0)<2?t.clear:t.cloudCover}</div><p className="text-xs text-muted m-0 mt-4">{weatherData?.humidity}% Hum | {weatherData?.cloudcover}/8 Cloud</p></div>
+            <div className="card"><div className="card-title"><Activity size={14}/> {t.issFlyovers}</div><div style={{maxHeight:'55px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} className="flex justify-between text-xs mb-2"><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span className="text-success font-bold">{p.maxAlt}°</span></div>)}</div></div>
           </div>
-          <div className="feature-grid-3 animate-fadeIn">
-            <div className="card" style={{ height: '480px', display: 'flex', flexDirection: 'column' }}>
-              <div className="stat-label"><MapIcon size={16} /> {t.starMap}</div>
-              <div style={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <svg width="100%" height="100%" viewBox="0 0 400 400" style={{ maxWidth: '380px' }}>
-                  <circle cx="200" cy="200" r="180" fill="rgba(15, 23, 42, 0.5)" stroke="var(--glass-border)" strokeWidth="1" />
-                  <radialGradient id="skyGradient"><stop offset="0%" stopColor="rgba(139, 92, 246, 0.15)" /><stop offset="100%" stopColor="transparent" /></radialGradient>
+
+          <div className="grid-main">
+            <div className="card map-box">
+              <div className="card-title"><MapIcon size={16} /> {t.starMap}</div>
+              <div className="svg-container">
+                <svg viewBox="0 0 400 400">
+                  <circle cx="200" cy="200" r="180" fill="rgba(0, 0, 0, 0.4)" stroke="var(--border-color)" strokeWidth="1" />
+                  <radialGradient id="skyGradient"><stop offset="0%" stopColor="rgba(99, 102, 241, 0.15)" /><stop offset="100%" stopColor="transparent" /></radialGradient>
                   <circle cx="200" cy="200" r="180" fill="url(#skyGradient)" />
-                  {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (<line key={a} x1="200" y1="200" x2={200 + 180 * Math.cos((a - 90) * Math.PI / 180)} y2={200 + 180 * Math.sin((a - 90) * Math.PI / 180)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />))}
-                  {[30, 60].map(alt => (<circle key={alt} cx="200" cy="200" r={180 * (1 - alt/90)} fill="none" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />))}
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (<line key={a} x1="200" y1="200" x2={200 + 180 * Math.cos((a - 90) * Math.PI / 180)} y2={200 + 180 * Math.sin((a - 90) * Math.PI / 180)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />))}
+                  {[30, 60].map(alt => (<circle key={alt} cx="200" cy="200" r={180 * (1 - alt/90)} fill="none" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />))}
                   {[{ a: 0, t: t.north }, { a: 90, t: t.east }, { a: 180, t: t.south }, { a: 270, t: t.west }].map(p => (<text key={p.a} x={200 + 195 * Math.cos((p.a - 90) * Math.PI / 180)} y={200 + 195 * Math.sin((p.a - 90) * Math.PI / 180)} fill="var(--accent-primary)" fontSize="14" fontWeight="900" textAnchor="middle" dominantBaseline="middle">{p.t}</text>))}
                   {allObjects.filter(obj => obj.altitude > 0).map(obj => {
                     const r = 180 * (1 - obj.altitude / 90); const a = (obj.azimuth - 90) * Math.PI / 180;
                     const x = 200 + r * Math.cos(a); const y = 200 + r * Math.sin(a);
                     const isSelected = selectedObjectId === obj.id; const size = obj.type === 'Planet' ? 6 : Math.max(2, 7 - obj.magnitude / 2);
-                    return (<g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>{isSelected && (<circle cx={x} cy={y} r={size + 6} fill="none" stroke="var(--accent-primary)" strokeWidth="2"><animate attributeName="r" values={`${size+3};${size+12};${size+3}`} dur="2s" repeatCount="indefinite" /><animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" /></circle>)}<circle cx={x} cy={y} r={size} fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? 'var(--accent-secondary)' : '#fff')} opacity={isSelected ? 1 : 0.7} /></g>)
+                    return (<g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>{isSelected && (<circle cx={x} cy={y} r={size + 6} fill="none" stroke="var(--accent-primary)" strokeWidth="2"><animate attributeName="r" values={`${size+3};${size+12};${size+3}`} dur="2.5s" repeatCount="indefinite" /><animate attributeName="opacity" values="1;0;1" dur="2.5s" repeatCount="indefinite" /></circle>)}<circle cx={x} cy={y} r={size} fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? 'var(--accent-secondary)' : '#fff')} opacity={isSelected ? 1 : 0.7} /></g>)
                   })}
-                  <text x="200" y="195" fill="rgba(255,255,255,0.2)" fontSize="8" textAnchor="middle" fontWeight="800">ZENITH</text>
+                  <text x="200" y="195" fill="rgba(255,255,255,0.2)" fontSize="10" textAnchor="middle" fontWeight="800">ZENITH</text>
                 </svg>
               </div>
             </div>
-            <div className="card" style={{ height: '480px', overflowY: 'auto' }}>
-              <div className="stat-label"><Info size={16} /> {t.celestialRegistry}</div>
-              {loadingWiki ? (<div style={{ textAlign: 'center', marginTop: '6rem' }}><div className="animate-spin-slow" style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid var(--accent-primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div><p style={{fontSize:'0.8rem', marginTop:'15px'}}>{t.wikiLoading}</p></div>
-              ) : wikiData ? (<div><div style={{ display: 'flex', gap: '20px', marginBottom: '1.5rem', alignItems:'center' }}>{wikiData.image && <img src={wikiData.image} alt="object" style={{ width: '100px', height: '100px', borderRadius: '18px', objectFit: 'cover', border:'1px solid var(--glass-border)' }} />}<div><h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize:'1.4rem' }}>{selectedObject.name}</h3><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight:700 }}>{wikiData.description}</div></div></div><div style={{ fontSize: '0.9rem', lineHeight: '1.7', background: 'rgba(0,0,0,0.25)', padding: '1.2rem', borderRadius: '18px', border:'1px solid var(--glass-border)' }}>{wikiData.extract}</div><div style={{marginTop:'1.2rem', padding:'10px', background:'rgba(59,130,246,0.1)', borderRadius:'12px'}}><div style={{fontSize:'0.65rem', color:'var(--accent-secondary)', fontWeight:900, textTransform:'uppercase'}}>{t.discovery}</div><div style={{fontSize:'0.85rem', fontWeight:600}}>Magnitude {selectedObject.magnitude} | Type: {selectedObject.type}</div></div></div>
-              ) : (<div style={{ textAlign: 'center', marginTop: '6rem', color: 'var(--text-muted)' }}><Zap size={48} opacity={0.2} /><p>{t.wikiError}</p></div>)}
+
+            <div className="card map-box" style={{overflowY:'auto'}}>
+              <div className="card-title"><Info size={16} /> {t.celestialRegistry}</div>
+              {loadingWiki ? (<div className="flex justify-center mt-4"><Activity size={24} className="text-primary"/></div>
+              ) : wikiData ? (<div className="flex-col gap-4 mt-4"><div className="flex gap-4 items-center">{wikiData.image && <img src={wikiData.image} alt="obj" style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover' }} />}<div><h3 className="m-0 text-primary text-xl">{selectedObject.name}</h3><div className="text-xs text-muted font-bold mt-4">{wikiData.description}</div></div></div><div className="info-panel text-sm text-muted">{wikiData.extract}</div><div className="bg-light p-4 rounded-md border-b"><div className="text-xs text-secondary font-black uppercase mb-2">{t.discovery}</div><div className="text-sm font-bold">Mag {selectedObject.magnitude} | {selectedObject.type}</div></div></div>
+              ) : (<div className="text-center mt-4 text-muted"><Zap size={48} opacity={0.2} /><p className="text-sm">{t.wikiError}</p></div>)}
             </div>
-            <div className="card" style={{ height: '480px' }}>
-              <div className="stat-label"><Camera size={16} /> {t.astroAsst}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1.5rem' }}>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>PIXEL (μm)</label><input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>F-RATIO</label><input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div>
+
+            <div className="card map-box">
+              <div className="card-title"><Camera size={16} /> {t.astroAsst}</div>
+              <div className="grid-split mt-4" style={{gridTemplateColumns:'1fr 1fr', marginBottom:'1rem'}}>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">PIXEL (μm)</label><input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="input" /></div>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">F-RATIO</label><input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="input" /></div>
               </div>
-              <div style={{ background: 'rgba(139, 92, 246, 0.05)', padding: '1.2rem', borderRadius: '18px', border:'1px solid var(--accent-glow)', marginBottom: '1.2rem', textAlign:'center' }}><div className="stat-label" style={{justifyContent:'center', fontSize:'0.7rem'}}>{t.sampling}</div><div style={{fontSize:'1.8rem', fontWeight:900, color:'var(--accent-primary)'}}>{imageScale}"/px</div><div style={{fontSize:'0.75rem', fontWeight:800, color:samplingStatus.color, textTransform:'uppercase'}}>{samplingStatus.label}</div></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom:'1.5rem' }}><div className="card" style={{padding:'12px', textAlign:'center', background:'rgba(0,0,0,0.2)'}}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>{t.guiding}</div><div style={{fontSize:'1rem', fontWeight:800}}>{guidingRMS}" RMS</div></div><div className="card" style={{padding:'12px', textAlign:'center', background:'rgba(0,0,0,0.2)'}}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>{t.integration}</div><div style={{fontSize:'1rem', fontWeight:800, color:'var(--accent-secondary)'}}>~{integrationReq}</div></div></div>
-              <div style={{ padding: '0.8rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '15px', border:'1px solid rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', gap: '12px' }}><Zap size={20} color="var(--accent-success)" /><div><div style={{fontSize:'0.6rem', color:'var(--accent-success)', fontWeight:900}}>{t.recommendedFilter}</div><div style={{fontSize:'0.85rem', fontWeight:800}}>{selectedObject.recommendedFilter || 'Broadband'}</div></div></div>
+              <div className="info-panel text-center mb-4 border-b border-primary">
+                <div className="card-title justify-center">{t.sampling}</div>
+                <div className="text-2xl font-black text-primary my-2">{imageScale}"/px</div>
+                <div className="text-xs font-bold uppercase" style={{color:samplingStatus.color}}>{samplingStatus.label}</div>
+              </div>
+              <div className="grid-split" style={{gridTemplateColumns:'1fr 1fr', marginBottom:'1rem'}}>
+                <div className="bg-dark p-4 rounded-md text-center"><div className="text-xs text-muted font-bold mb-2">{t.guiding}</div><div className="text-sm font-bold">{guidingRMS}" RMS</div></div>
+                <div className="bg-dark p-4 rounded-md text-center"><div className="text-xs text-muted font-bold mb-2">{t.integration}</div><div className="text-sm font-bold text-secondary">~{integrationReq}</div></div>
+              </div>
+              <div className="bg-light p-4 rounded-md flex items-center gap-4"><Zap size={20} className="text-success" /><div><div className="text-xs text-success font-bold mb-2">{t.recommendedFilter}</div><div className="text-sm font-bold">{selectedObject.recommendedFilter || 'Broadband'}</div></div></div>
             </div>
           </div>
-          <div className="grid-2-cols animate-fadeIn">
-            <div className="card" style={{display:'flex', flexDirection:'column'}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem'}}><div style={{display:'flex', alignItems:'center', gap:'12px'}}><BarChart3 size={24} color="var(--accent-primary)"/><h3 style={{margin:0, fontSize:'1.4rem'}}>{selectedObject.name}</h3></div><button onClick={() => shareObservation(selectedObject.id)} className="btn-faq"><Share2 size={16}/> SHARE</button></div>
-              <div style={{height:'220px', marginBottom:'1.5rem'}}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.3}/><stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" fontSize={10} tick={{fill:'var(--text-muted)'}} /><YAxis domain={[0,90]} fontSize={10} tick={{fill:'var(--text-muted)'}} /><Tooltip contentStyle={{background:'var(--bg-deep)', border:'1px solid var(--glass-border)', borderRadius:'12px'}} /><Area type="monotone" dataKey="altitude" stroke="var(--accent-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" /></AreaChart></ResponsiveContainer></div>
-              <div className="ascom-panel" style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--accent-secondary)', padding: '1.2rem', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}><div style={{display:'flex', alignItems:'center', gap:'10px'}}><div className={`status-led active`} style={{color:isTelescopeConnected?'var(--accent-success)':'var(--accent-danger)', background:'currentColor'}}></div><span style={{fontSize:'0.65rem', fontWeight:800, color:'var(--text-muted)', textTransform:'uppercase'}}>Telemetrie montáže</span></div><div style={{fontFamily:'monospace', fontSize:'0.9rem'}}>RA: {mountRa.toFixed(4)}h | DEC: {mountDec.toFixed(3)}°</div></div>
-                <div style={{display:'flex', gap:'10px'}}><input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="ascom-input" style={{flexGrow:1, fontSize:'0.8rem'}} placeholder="Alpaca IP" /><button onClick={connectTelescope} className={`btn-faq ${isTelescopeConnected?'btn-primary':''}`} style={{minWidth:'100px'}}>{isTelescopeConnected ? 'ONLINE' : 'CONNECT'}</button></div>
-                {isTelescopeConnected && <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}><button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn-faq btn-primary" style={{fontSize:'0.75rem'}}>{isSlewing ? 'SLEWING...' : 'SLEW TO TARGET'}</button><button onClick={() => syncMount(selectedObject.ra, selectedObject.dec)} className="btn-faq" style={{fontSize:'0.75rem'}}>SYNC CALIBRATION</button></div>}
+
+          <div className="grid-main">
+            <div className="card aladin-box p-4 flex-col justify-between">
+              <div className="card-header m-0"><div className="flex items-center gap-2 text-primary font-bold"><BarChart3 size={20}/> {selectedObject.name}</div><button onClick={() => shareObservation(selectedObject.id)} className="btn"><Share2 size={12}/> SHARE</button></div>
+              <div className="flex-grow my-4"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" fontSize={10} tick={{fill:'var(--text-muted)'}} /><YAxis domain={[0,90]} fontSize={10} tick={{fill:'var(--text-muted)'}} /><Tooltip contentStyle={{background:'var(--bg-deep)', border:'1px solid var(--border-color)', borderRadius:'12px'}} /><Area type="monotone" dataKey="altitude" stroke="var(--accent-primary)" strokeWidth={3} fill="var(--accent-primary)" fillOpacity={0.2} /></AreaChart></ResponsiveContainer></div>
+              <div className="info-panel flex-col gap-2">
+                <div className="flex justify-between items-center text-xs text-muted font-bold uppercase mb-2"><span>MOUNT TELEMETRY</span><span className="text-success">RA {mountRa.toFixed(2)}h / DEC {mountDec.toFixed(1)}°</span></div>
+                <div className="flex gap-2"><input value={telescopeIp} onChange={e => setTelescopeIp(e.target.value)} className="input flex-grow" placeholder="Alpaca IP" /><button onClick={connectTelescope} className={`btn ${isTelescopeConnected?'btn-primary':''}`}>{isTelescopeConnected ? 'ONLINE' : 'CONN'}</button></div>
+                {isTelescopeConnected && <div className="grid-split" style={{gridTemplateColumns:'1fr 1fr', margin:0}}><button onClick={() => slewTelescope(selectedObject.ra, selectedObject.dec)} className="btn btn-primary">{isSlewing ? 'SLEWING' : 'SLEW TARGET'}</button><button onClick={() => syncMount(selectedObject.ra, selectedObject.dec)} className="btn">SYNC</button></div>}
               </div>
             </div>
-            <div className="card"><div className="stat-label"><Eye size={18}/> {t.imaging}</div><div style={{borderRadius:'20px', overflow:'hidden', height:'350px', background:'#000', border:'1px solid var(--glass-border)'}}><iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" /></div></div>
+            <div className="card aladin-box p-0">
+              <div className="p-4 border-b flex items-center gap-2 font-bold text-muted text-xs uppercase"><Eye size={16}/> {t.imaging}</div>
+              <iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" />
+            </div>
           </div>
-          <div className="grid-2-cols animate-fadeIn">
+
+          <div className="grid-main">
             <div className="card">
-              <div className="stat-label"><Sparkles size={16} /> {t.gearSimulator}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '2rem' }}>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>APERTURE</label><input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>FOCAL</label><input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>EYEPIECE</label><input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
-                <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>AFOV</label><input type="number" value={eyepieceAfov} onChange={e => setEyepieceAfov(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
+              <div className="card-title"><Sparkles size={16} /> {t.gearSimulator}</div>
+              <div className="grid-dash mt-4" style={{gridTemplateColumns:'repeat(2, 1fr)'}}>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">APERTURE</label><input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="input" /></div>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">FOCAL</label><input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="input" /></div>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">EYEPIECE</label><input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="input" /></div>
+                <div className="flex-col gap-2"><label className="text-xs text-muted font-bold">AFOV</label><input type="number" value={eyepieceAfov} onChange={e => setEyepieceAfov(parseInt(e.target.value))} className="input" /></div>
               </div>
-              <div style={{display:'flex', justifyContent:'space-around', background:'rgba(255,255,255,0.02)', padding:'1.5rem', borderRadius:'20px', border:'1px solid var(--glass-border)'}}>
-                <div style={{textAlign:'center'}}><div className="stat-label" style={{marginBottom:'5px', justifyContent:'center'}}>{t.magnification}</div><div style={{fontSize:'1.8rem', fontWeight:900, color:'var(--accent-primary)'}}>{magnification}x</div></div>
-                <div style={{textAlign:'center', borderLeft:'1px solid var(--glass-border)', paddingLeft:'2rem'}}><div className="stat-label" style={{marginBottom:'5px', justifyContent:'center'}}>{t.tfov}</div><div style={{fontSize:'1.8rem', fontWeight:900, color:'var(--accent-secondary)'}}>{(eyepieceAfov/(focalLength/eyepiece)).toFixed(2)}°</div></div>
+              <div className="info-panel flex justify-between mt-4">
+                <div className="text-center w-full"><div className="card-title justify-center">{t.magnification}</div><div className="text-xl font-black text-primary mt-2">{magnification}x</div></div>
+                <div className="text-center w-full border-l border-b" style={{borderLeft:'1px solid var(--border-color)'}}><div className="card-title justify-center">{t.tfov}</div><div className="text-xl font-black text-secondary mt-2">{(eyepieceAfov/(focalLength/eyepiece)).toFixed(2)}°</div></div>
               </div>
             </div>
+            
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}><div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.issLive}</div><button onClick={() => setFollowIss(!followIss)} className={`btn-faq ${followIss ? 'btn-primary' : ''}`} style={{ fontSize: '0.7rem', padding:'5px 12px' }}>{followIss ? 'LOCKED ON ISS' : 'FREE CAMERA'}</button></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
-                <div style={{ height: '220px', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-                  <MapContainer center={[0, 0]} zoom={2} style={{ height: '100%' }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
-                    <Polyline positions={issPath} color="var(--accent-primary)" weight={2} opacity={0.6} />
-                    {issLivePos && (<><Circle center={issLivePos} radius={2200000} pathOptions={{ color: 'var(--accent-secondary)', fillOpacity: 0.1, weight:1 }} /><ChangeView center={issLivePos} zoom={followIss ? 4 : undefined} /><Marker position={issLivePos} icon={issIcon} /></>)}
-                  </MapContainer>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '15px', border:'1px solid var(--glass-border)' }}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>VELOCITY</div><div style={{fontSize:'1.1rem', fontWeight:900, color:'var(--accent-primary)'}}>{Math.round(issTelemetry.vel)} <span style={{fontSize:'0.7rem', fontWeight:400}}>km/h</span></div></div>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '15px', border:'1px solid var(--glass-border)' }}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>ALTITUDE</div><div style={{fontSize:'1.1rem', fontWeight:900, color:'var(--accent-secondary)'}}>{Math.round(issTelemetry.alt)} <span style={{fontSize:'0.7rem', fontWeight:400}}>km</span></div></div>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '15px', border:'1px solid var(--glass-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}><div><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>LIGHT</div><div style={{fontSize:'0.8rem', fontWeight:900, textTransform:'uppercase'}}>{issTelemetry.vis}</div></div><div className="status-led active" style={{color:issTelemetry.vis==='day'?'#f59e0b':'#1e293b', background:'currentColor'}}></div></div>
+              <div className="card-header m-0"><div className="card-title"><Globe size={16} /> {t.issLive}</div><button onClick={() => setFollowIss(!followIss)} className={`badge ${followIss ? 'text-primary bg-light' : 'text-muted'}`} style={{border:'none', cursor:'pointer'}}>{followIss ? 'LOCKED' : 'FREE'}</button></div>
+              <div className="flex-col gap-4 mt-4 h-full">
+                <div className="flex-grow rounded-lg overflow-hidden border-b" style={{minHeight:'180px'}}><MapContainer center={[0, 0]} zoom={2} style={{ height: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><Polyline positions={issPath} color="var(--accent-primary)" weight={2} opacity={0.8} />{issLivePos && (<><Circle center={issLivePos} radius={2200000} pathOptions={{ color: 'var(--accent-secondary)', fillOpacity: 0.1, weight:1 }} /><ChangeView center={issLivePos} zoom={followIss ? 4 : undefined} /><Marker position={issLivePos} icon={issIcon} /></>)}</MapContainer></div>
+                <div className="grid-split" style={{gridTemplateColumns:'1fr 1fr', margin:0}}>
+                  <div className="bg-dark p-4 rounded-md"><div className="text-xs text-muted font-bold mb-2">VELOCITY</div><div className="text-sm font-black">{Math.round(issTelemetry.vel)} <span className="text-xs font-bold text-muted">km/h</span></div></div>
+                  <div className="bg-dark p-4 rounded-md"><div className="text-xs text-muted font-bold mb-2">ALTITUDE</div><div className="text-sm font-black text-secondary">{Math.round(issTelemetry.alt)} <span className="text-xs font-bold text-muted">km</span></div></div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="card animate-fadeIn" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: 'var(--accent-success)', fontWeight:700 }}>Mag {c.mag}</span></div>))}</div></div>
-          <div className="card animate-fadeIn" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap:'10px' }}>{METEOR_SHOWERS.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>
-          <section className="map-container card pollution-map animate-fadeIn" style={{ height: 'auto', minHeight: '650px', marginBottom:'2.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}><div className="stat-label" style={{ marginBottom: 0, fontSize:'1.1rem' }}><Globe size={24} /> {t.darkSkyMap}</div></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
-              <div style={{ height: '500px', borderRadius: '24px', overflow: 'hidden', position: 'relative', border:'1px solid var(--glass-border)' }}>
-                <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%' }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
-                  <TileLayer url="https://tiles.lightpollutionmap.info/tiles/wa2015/{z}/{x}/{y}.png" opacity={0.65} maxZoom={8} />
-                  <ChangeView center={[location.lat, location.lon]} />
-                  <Marker position={[location.lat, location.lon]}><Popup>Your Station</Popup></Marker>
-                </MapContainer>
-                <div style={{ position: 'absolute', bottom: '25px', right: '25px', zIndex: 1000, background: 'rgba(15, 23, 42, 0.95)', padding: '15px', borderRadius: '18px', border: '1px solid var(--accent-primary)', boxShadow:'0 10px 30px rgba(0,0,0,0.5)' }}>
-                  <div style={{ fontWeight: 900, marginBottom: '10px', fontSize:'0.7rem', textTransform: 'uppercase' }}>Legend</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {[{ c: '#000', l: 'Class 1' }, { c: '#000080', l: 'Class 2' }, { c: '#00F', l: 'Class 3' }, { c: '#0F0', l: 'Class 4' }, { c: '#FF0', l: 'Class 5' }, { c: '#F00', l: 'Class 7+' }].map(i => (<div key={i.l} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize:'0.65rem' }}><div style={{ width: '12px', height: '12px', background: i.c, borderRadius:'3px' }}></div>{i.l}</div>))}
-                  </div>
+
+          <div className="card mb-4"><div className="card-title mb-4"><Sparkles size={16} /> {t.comets}</div><div className="grid-dash m-0">{BRIGHT_COMETS.map(c => (<div key={c.name} className="bg-light p-4 rounded-md flex justify-between"><span className="text-sm font-bold">{c.name}</span><span className="text-xs font-black text-success">Mag {c.mag}</span></div>))}</div></div>
+          <div className="card mb-4"><div className="card-title mb-4"><Activity size={16} /> {t.meteorShowers}</div><div className="grid-dash m-0">{METEOR_SHOWERS.slice(0,6).map(s => (<div key={s.name.en} className="bg-light p-4 rounded-md flex justify-between"><span className="text-sm font-bold">{s.name[lang]}</span><span className="text-xs font-black text-primary">{s.date}</span></div>))}</div></div>
+          
+          <section className="card mb-4 pollution-grid p-0">
+            <div className="p-4 flex-col h-full">
+              <div className="card-title mb-4"><Globe size={18} /> {t.darkSkyMap}</div>
+              <div className="flex-grow rounded-lg overflow-hidden relative border-b" style={{minHeight:'400px'}}>
+                <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><TileLayer url="https://tiles.lightpollutionmap.info/tiles/wa2015/{z}/{x}/{y}.png" opacity={0.65} maxZoom={8} /><ChangeView center={[location.lat, location.lon]} /><Marker position={[location.lat, location.lon]}><Popup>Station</Popup></Marker></MapContainer>
+                <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000, background: 'rgba(15, 23, 42, 0.95)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--accent-primary)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                  <div className="text-xs font-black mb-2 uppercase">Bortle</div>
+                  <div className="flex-col gap-2">{[{ c: '#000', l: 'C 1' }, { c: '#000080', l: 'C 2' }, { c: '#00F', l: 'C 3' }, { c: '#0F0', l: 'C 4' }, { c: '#FF0', l: 'C 5' }, { c: '#F00', l: 'C 7+' }].map(i => (<div key={i.l} className="flex items-center gap-2 text-xs"><div style={{ width: '10px', height: '10px', background: i.c, borderRadius:'2px' }}></div>{i.l}</div>))}</div>
                 </div>
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
-                <h3 style={{color:'var(--accent-primary)'}}>{t.bortleScale}</h3>
+            </div>
+            <div className="p-4 bg-dark border-l border-b" style={{borderLeft:'1px solid var(--border-color)'}}>
+              <h3 className="text-primary text-sm font-black uppercase mb-4 pb-2 border-b">{t.bortleScale}</h3>
+              <div className="flex-col gap-4">
                 {[ {t:'EXCELLENT', d:t.bortle1, c:'var(--accent-success)'}, {t:'RURAL', d:t.bortle3, c:'var(--accent-secondary)'}, {t:'SUBURBAN', d:t.bortle5, c:'var(--accent-warning)'}, {t:'CITY', d:t.bortle8, c:'var(--accent-danger)'} ].map(b => (
-                  <div key={b.t} style={{background:'rgba(255,255,255,0.03)', padding:'1rem', borderRadius:'16px', border:'1px solid var(--glass-border)'}}>
-                    <div style={{fontSize:'0.6rem', fontWeight:900, color:b.c}}>{b.t}</div>
-                    <div style={{fontSize:'0.8rem', margin:'5px 0', fontWeight:600}}>{b.d}</div>
-                  </div>
+                  <div key={b.t} className="info-panel"><div className="text-xs font-black mb-2" style={{color:b.c}}>{b.t}</div><div className="text-xs font-bold text-muted">{b.d}</div></div>
                 ))}
               </div>
             </div>
           </section>
-          <section className="logbook card animate-fadeIn">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}><div><h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0, fontSize:'1.8rem' }}><Calendar size={32} color="var(--accent-primary)" /> {t.nightPlan}</h2><div style={{fontSize:'0.8rem', color:'var(--text-muted)', fontWeight:700}}>SESSION: {nightPlan.length} TARGETS</div></div><button className="btn-faq btn-primary" onClick={exportToPDF}>GENERATE MISSION REPORT</button></div>
-            <div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))' }}>
-              {nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `5px solid ${obj.altitude > 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'flex-start', marginBottom:'1rem' }}><div><h3 style={{margin:0, fontSize:'1.2rem'}}>{obj.name}</h3><div style={{fontSize:'0.75rem', color:'var(--text-muted)', fontWeight:700}}>{obj.commonName[lang]}</div></div><div style={{textAlign:'right'}}><div style={{fontSize:'1.1rem', fontWeight:900, color:obj.altitude>0?'var(--accent-success)':'var(--accent-danger)'}}>{obj.altitude.toFixed(1)}°</div><div style={{fontSize:'0.55rem', fontWeight:800, textTransform:'uppercase'}}>{obj.altitude>0?'VISIBLE':'BELOW'}</div></div></div><textarea value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} placeholder="MISSION NOTES..." style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', color: 'white', padding: '1rem', borderRadius: '15px', minHeight:'100px', outline:'none', fontSize:'0.9rem', marginBottom:'1rem' }} /><div style={{display:'flex', gap:'8px'}}><button onClick={() => shareObservation(id)} className="btn-faq" style={{flexGrow:1}}><Share2 size={12}/> SHARE</button><button onClick={() => setNightPlan(p => p.filter(x => x !== id))} className="btn-faq" style={{color:'var(--accent-danger)', borderColor:'rgba(239,68,68,0.2)'}}>REMOVE</button></div></div>) })}
+
+          <section className="card mb-4">
+            <div className="card-header"><div className="flex items-center gap-4"><Calendar size={28} className="text-primary" /><div><h2 className="m-0">{t.nightPlan}</h2><div className="text-xs font-bold text-muted mt-2 uppercase">MISSION TARGETS: {nightPlan.length}</div></div></div><button className="btn btn-primary" onClick={exportToPDF}>{t.exportPDF}</button></div>
+            <div className="grid-split mt-4">
+              {nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="info-panel" style={{ borderLeft: `4px solid ${obj.altitude > 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}><div className="flex justify-between items-start mb-4"><div><h3 className="m-0 text-lg">{obj.name}</h3><div className="text-xs text-muted font-bold mt-2">{obj.commonName[lang]}</div></div><div className="text-right"><div className={`text-lg font-black ${obj.altitude>0?'text-success':'text-danger'}`}>{obj.altitude.toFixed(1)}°</div><div className="text-xs font-black uppercase mt-2">{obj.altitude>0?'VISIBLE':'BELOW'}</div></div></div><textarea value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} placeholder="MISSION NOTES..." className="input mb-4" style={{minHeight:'80px'}} /><div className="flex gap-2"><button onClick={() => shareObservation(id)} className="btn flex-grow"><Share2 size={12}/> SHARE</button><button onClick={() => setNightPlan(p => p.filter(x => x !== id))} className="btn text-danger">REMOVE</button></div></div>) })}
             </div>
           </section>
-          <section className="object-list animate-fadeIn" style={{ marginTop: '4rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2.5rem', fontSize:'2rem' }}><Eye size={36} color="var(--accent-primary)" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''}`} onClick={() => setSelectedObjectId(obj.id)} style={{borderLeftColor: selectedObjectId===obj.id?'var(--accent-primary)':''}}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center' }}><div><h3 className="obj-name" style={{fontSize:'1.3rem', margin:0}}>{obj.name}</h3><div className="obj-meta" style={{fontSize:'0.8rem', fontWeight:600}}>{obj.commonName[lang]}</div><div className="obj-meta" style={{ marginTop: '12px', fontSize:'0.7rem' }}><span style={{ color: 'var(--accent-secondary)', fontWeight:800, textTransform:'uppercase' }}>{obj.type}</span> • MAG {obj.magnitude}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`} style={{fontSize:'1.1rem', padding:'5px 15px'}}>{obj.altitude.toFixed(1)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="btn-faq" style={{ marginTop: '12px', padding:'5px 15px', width:'100%', background:'rgba(139, 92, 246, 0.1)', borderColor:'var(--accent-primary)' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
+
+          <section className="mt-4 mb-4"><h2 className="flex items-center gap-4 text-2xl font-black mb-4"><Eye size={32} className="text-primary" /> {t.objects}</h2><div className="grid-split">{filteredObjects.map(obj => (<div key={obj.id} className="card p-4 hover:border-primary cursor-pointer" onClick={() => setSelectedObjectId(obj.id)} style={{borderLeftColor: selectedObjectId===obj.id?'var(--accent-primary)':''}}><div className="flex justify-between items-center"><div><h3 className="m-0 text-lg">{obj.name}</h3><div className="text-xs font-bold text-muted mt-2">{obj.commonName[lang]}</div><div className="text-xs mt-2"><span className="text-secondary font-black uppercase">{obj.type}</span> • MAG {obj.magnitude}</div></div><div className="text-right"><div className="badge bg-dark mb-4 inline-block">{obj.altitude.toFixed(1)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="btn w-full text-primary" style={{borderColor:'var(--accent-primary)', background:'rgba(99,102,241,0.1)'}}>{t.addToPlan}</button></div></div></div>))}</div></section>
         </>
       )}
-      <footer style={{ marginTop: '6rem', color: 'var(--text-muted)', textAlign: 'center', padding: '4rem', borderTop: '1px solid var(--glass-border)', background:'rgba(0,0,0,0.4)' }}><div style={{fontWeight:900, letterSpacing:'5px', fontSize:'0.8rem', marginBottom:'10px'}}>DEEP SKY PLANNER v2.2 ENTERPRISE</div><p style={{fontSize:'0.75rem'}}>{t.footer}</p></footer>
+      <footer className="text-center mt-4 p-4 border-b border-primary bg-dark rounded-lg text-muted"><div className="text-xs font-black uppercase tracking-widest mb-2">DEEP SKY PLANNER v2.2 ENTERPRISE</div><p className="text-xs m-0">{t.footer}</p></footer>
     </div>
   )
 }

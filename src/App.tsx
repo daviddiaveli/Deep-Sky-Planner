@@ -397,7 +397,71 @@ export default function App() {
           </div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: '#10b981' }}>Mag {c.mag}</span></div>))}</div></div>
           <div className="card" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap:'10px' }}>{sortedMeteors.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>
-          <section className="map-container card pollution-map" style={{height:'500px'}}><div className="stat-label" style={{ marginBottom: '1.2rem' }}><Globe size={18} /> {t.darkSkyMap}</div><div style={{ height: '400px', width: '100%' }}><MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" /><TileLayer url="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png" opacity={0.7} attribution="© NASA GIBS" /><ChangeView center={[location.lat, location.lon]} /><Marker position={[location.lat, location.lon]}><Popup>You</Popup></Marker></MapContainer></div></section>
+          <section className="map-container card pollution-map" style={{ height: 'auto', minHeight: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div className="stat-label" style={{ marginBottom: 0 }}><Globe size={18} /> {t.darkSkyMap}</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '4px 12px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800 }}>WORLD ATLAS 2015 DATA</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
+              <div style={{ height: '450px', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                <MapContainer center={[location.lat, location.lon]} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dark-base-map" />
+                  <TileLayer 
+                    url="https://tiles.lightpollutionmap.info/tiles/wa2015/{z}/{x}/{y}.png" 
+                    opacity={0.6} 
+                    maxZoom={8}
+                    attribution='&copy; <a href="https://www.lightpollutionmap.info">Jurij Stare</a> / Falchi et al.'
+                  />
+                  <ChangeView center={[location.lat, location.lon]} />
+                  <Marker position={[location.lat, location.lon]}><Popup>Observation Site</Popup></Marker>
+                </MapContainer>
+                
+                {/* Visual Legend Overlay on Map */}
+                <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000, background: 'rgba(15, 23, 42, 0.9)', padding: '10px', borderRadius: '12px', border: '1px solid var(--glass-border)', fontSize: '0.6rem' }}>
+                  <div style={{ fontWeight: 800, marginBottom: '5px', textTransform: 'uppercase' }}>Bortle Scale</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {[
+                      { c: '#000000', l: '1' }, { c: '#000080', l: '2' }, { c: '#0000FF', l: '3' }, 
+                      { c: '#00FF00', l: '4' }, { c: '#FFFF00', l: '5' }, { c: '#FFA500', l: '6' }, 
+                      { c: '#FF0000', l: '7' }, { c: '#FFFFFF', l: '8-9' }
+                    ].map(item => (
+                      <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '12px', height: '12px', background: item.c, border: '1px solid rgba(255,255,255,0.2)' }}></div>
+                        <span>Class {item.l}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{t.bortleScale}</h3>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 1-2</div>
+                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle1} / {t.bortle2}</p>
+                  <div style={{ fontSize: '0.65rem', color: '#10b981' }}>SQM: 21.7 - 22.0</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 3-4</div>
+                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle3} / {t.bortle4}</p>
+                  <div style={{ fontSize: '0.65rem', color: '#3b82f6' }}>SQM: 20.4 - 21.7</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 5-7</div>
+                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle5} - {t.bortle7}</p>
+                  <div style={{ fontSize: '0.65rem', color: '#f59e0b' }}>SQM: 18.0 - 20.4</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>CLASS 8-9</div>
+                  <p style={{ fontSize: '0.75rem', margin: '4px 0' }}>{t.bortle8} / {t.bortle9}</p>
+                  <div style={{ fontSize: '0.65rem', color: '#ef4444' }}>SQM: &lt; 18.0</div>
+                </div>
+              </div>
+            </div>
+          </section>
           <section className="logbook card" style={{ marginTop: '1rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}><Calendar size={28} color="var(--accent-primary)" /> {t.nightPlan}</h2><button className="btn-faq btn-primary" onClick={exportToPDF}>{t.exportPDF}</button></div><div className="grid-list">{nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center' }}><h3>{obj.name} <span style={{fontWeight:400, color:'var(--text-muted)', fontSize:'0.8rem'}}>{obj.commonName[lang]}</span></h3><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => setNightPlan(prev => prev.filter(oid => oid !== id))} className="btn-faq" style={{borderColor:'#ef4444', color:'#ef4444', padding:'8px'}}>X</button></div></div><textarea placeholder={t.notes} value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'white', padding: '0.8rem', borderRadius: '12px', marginTop:'1rem', minHeight: '80px', outline:'none' }} /></div>)})}</div></section>
           <section className="object-list" style={{ marginTop: '2rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}><Eye size={28} color="#8b5cf6" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''} ${obj.altitude > 0 ? 'visible' : ''}`} onClick={() => setSelectedObjectId(obj.id)}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><h3 className="obj-name">{obj.name}</h3><div className="obj-meta">{obj.commonName[lang]}</div>{obj.recommendedFilter && <div style={{ marginTop: '4px', fontSize: '0.7rem', color: '#10b981' }}><Zap size={10}/> {t.recommendedFilter}: {obj.recommendedFilter}</div>}<div className="obj-meta" style={{ marginTop: '8px' }}><span style={{ color: 'var(--accent-secondary)' }}>{obj.type}</span> {obj.type !== 'Planet' ? `• Mag ${obj.magnitude}` : ''}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`}>{obj.altitude.toFixed(1)}°</div><div className="obj-meta" style={{ marginTop: '4px' }}>Az: {obj.azimuth.toFixed(0)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="lang-btn" style={{ marginTop: '8px', width: '100%', fontSize: '0.7rem' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
         </>

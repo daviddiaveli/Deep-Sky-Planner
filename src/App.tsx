@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Telescope, BarChart3, Search, User, Activity, Share2, Camera, Map as MapIcon, Sun, Moon, Wind, Eye, Info, Zap, Sparkles, Globe, Send, Cloud, Calendar } from 'lucide-react'
+import { Telescope, BarChart3, Search, User, Activity, Share2, Camera, Map as MapIcon, Sun, Moon, Wind, Eye, Info, Zap, Sparkles, Globe, Cloud, Calendar } from 'lucide-react'
 import * as Astronomy from 'astronomy-engine'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet'
@@ -10,8 +10,19 @@ import autoTable from 'jspdf-autotable'
 import { MESSIER_CATALOG, TRANSLATIONS, METEOR_SHOWERS, BRIGHT_COMETS, MOON_CRATERS, type DeepSkyObject } from './data'
 import './index.css'
 
-L.Marker.prototype.options.icon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41] })
-const issIcon = L.divIcon({ className: 'iss-icon', html: "<div style='background:#ff0000; width:12px; height:12px; border-radius:50%; box-shadow: 0 0 15px #ff0000; border: 2px solid white;'></div>", iconSize: [12, 12], iconAnchor: [6, 6] })
+L.Marker.prototype.options.icon = L.icon({ 
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', 
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', 
+    iconSize: [25, 41], 
+    iconAnchor: [12, 41] 
+})
+
+const issIcon = L.divIcon({ 
+    className: 'iss-icon', 
+    html: "<div style='background:#ff0000; width:12px; height:12px; border-radius:50%; box-shadow: 0 0 15px #ff0000; border: 2px solid white;'></div>", 
+    iconSize: [12, 12], 
+    iconAnchor: [6, 6] 
+})
 
 interface VisibleObject extends DeepSkyObject { altitude: number; azimuth: number; }
 
@@ -26,13 +37,14 @@ export default function App() {
   const [activeView, setActiveView] = useState<'planner' | 'community'>('planner')
   const [showAuthModal, setShowAuthModal] = useState(false); const [user, setUser] = useState<string | null>(null)
   const [isNightMode, setIsNightMode] = useState(localStorage.getItem('nightMode') === 'true')
+  
   const [focalLength, setFocalLength] = useState(750); const [eyepiece, setEyepiece] = useState(25)
   const [aperture, setAperture] = useState(150); const [eyepieceAfov, setEyepieceAfov] = useState(52)
   const [pixelSize, setPixelSize] = useState(3.76); const [apertureF, setApertureF] = useState(5.0)
-  const [sensorW, setSensorW] = useState(6248); const [sensorH, setSensorH] = useState(4176)
+  
   const [telescopeIp, setTelescopeIp] = useState('127.0.0.1:11111'); const [isTelescopeConnected, setIsTelescopeConnected] = useState(false)
-  const [mountRa, setMountRa] = useState(0); const [mountDec, setMountDec] = useState(0)
-  const [isSlewing, setIsSlewing] = useState(false)
+  const [mountRa, setMountRa] = useState(0); const [mountDec, setMountDec] = useState(0); const [isSlewing, setIsSlewing] = useState(false)
+  
   const [location, setLocation] = useState({ lat: 50.0755, lon: 14.4378 }); const [date, setDate] = useState(new Date())
   const [selectedObjectId, setSelectedObjectId] = useState('M31'); const [selectedCat, setSelectedCat] = useState('all')
   const [searchQuery, setSearchQuery] = useState(''); const [showSuggestions, setShowSuggestions] = useState(false)
@@ -40,11 +52,13 @@ export default function App() {
   const [astroTwilight, setAstroTwilight] = useState<Date | null>(null); const [weatherData, setWeatherData] = useState<any>(null)
   const [nightPlan, setNightPlan] = useState<string[]>([]); const [observations, setObservations] = useState<Record<string, string>>({})
   const [showFAQ, setShowFAQ] = useState(false)
+  
   const [issPasses, setIssPasses] = useState<any[]>([])
   const [issLivePos, setIssLivePos] = useState<[number, number] | null>(null)
   const [issTelemetry, setIssTelemetry] = useState({ alt: 0, vel: 0, vis: 'day' })
   const [issPath, setIssPath] = useState<[number, number][]>([])
   const [followIss, setFollowIss] = useState(true)
+  
   const [wikiData, setWikiData] = useState<{extract: string, description: string, image?: string} | null>(null)
   const [loadingWiki, setLoadingWiki] = useState(false)
   const sharedPosts = [{ id: 1, user: 'AstroDave', object: 'M42', note: 'Trapezium detail!', time: '2 hours ago' }]
@@ -87,12 +101,13 @@ export default function App() {
   const guidingRMS = useMemo(() => (parseFloat(imageScale) / 3).toFixed(2), [imageScale])
   const integrationReq = useMemo(() => { const o = allObjects.find(x => x.id === selectedObjectId) || allObjects[0]; const m = (o?.magnitude || 5) <= 0 ? 5 : o!.magnitude; return Math.max(1, Math.round(Math.pow(1.5, m - 5))) + 'h' }, [selectedObjectId, allObjects])
 
-  const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) alert('Shared with Community!') }
+  const shareObservation = (id: string) => { const obj = allObjects.find(o => o.id === id); if (obj) alert('Observation Shared with Community!') }
   const connectTelescope = () => setIsTelescopeConnected(!isTelescopeConnected)
   const slewTelescope = (ra: number, dec: number) => { if (isTelescopeConnected) { setIsSlewing(true); setTimeout(() => { setMountRa(ra); setMountDec(dec); setIsSlewing(false) }, 2000) } }
   const syncMount = (ra: number, dec: number) => { setMountRa(ra); setMountDec(dec) }
   const recommendedCraters = useMemo(() => MOON_CRATERS.filter(c => Math.abs(c.age - moonAge) < 2.5), [moonAge])
 
+  useEffect(() => { localStorage.setItem('nightMode', isNightMode.toString()) }, [isNightMode])
   useEffect(() => { const fw = async () => { try { const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=cloud_cover,relative_humidity_2m,visibility&forecast_days=1`); const d = await r.json(); if (d.current) setWeatherData({ cloudcover: Math.round(d.current.cloud_cover/12), transparency: Math.round(d.current.visibility/5000), humidity: d.current.relative_humidity_2m }) } catch (e) {} }; fw() }, [location])
   useEffect(() => { const sp = localStorage.getItem('nightPlan'); const so = localStorage.getItem('observations'); if (sp) setNightPlan(JSON.parse(sp)); if (so) setObservations(JSON.parse(so)) }, [])
   useEffect(() => { localStorage.setItem('nightPlan', JSON.stringify(nightPlan)); localStorage.setItem('observations', JSON.stringify(observations)) }, [nightPlan, observations])
@@ -129,18 +144,18 @@ export default function App() {
 
   return (
     <div className={`app-container ${isNightMode ? 'night-mode' : ''}`}>
-      <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 20px', background:'rgba(139, 92, 246, 0.1)', borderBottom:'1px solid var(--glass-border)', fontSize:'0.6rem', fontWeight:800, color:'var(--text-muted)', marginBottom:'1.5rem', borderRadius:'10px' }}>
-        <span>MISSION STATUS: ACTIVE</span>
-        <span style={{ color:'var(--accent-primary)' }}>DEEP SKY PLANNER v2.2 ENTERPRISE</span>
+      <div className="mission-bar">
+        <span>MISSION STATUS: <strong style={{color:'var(--accent-success)'}}>ACTIVE</strong></span>
         <span>{date.toUTCString()}</span>
+        <span>VERSION 2.2 ENTERPRISE</span>
       </div>
 
       {showAuthModal && (<><div className="overlay" onClick={() => setShowAuthModal(false)}></div><div className="auth-modal card animate-fadeIn"><h2><Cloud size={24} color="var(--accent-primary)" /> {t.loginSync}</h2><button className="btn-faq btn-primary" style={{width:'100%', marginTop:'1rem'}} onClick={() => { setUser('AstroUser'); setShowAuthModal(false) }}>Login</button></div></>)}
       
-      <header className="header">
+      <header className="header animate-fadeIn">
         <div className="header-left">
           <div style={{background:'var(--accent-primary)', padding:'10px', borderRadius:'15px', boxShadow:'0 0 20px var(--accent-glow)'}}><Telescope size={32} color="white" /></div>
-          <div><h1>{t.title}</h1></div>
+          <h1>{t.title}</h1>
         </div>
         <div className="lang-switch">
           <button className={`btn-faq ${isNightMode ? 'active' : ''}`} onClick={() => setIsNightMode(!isNightMode)} style={{ background: isNightMode ? '#ff0000' : '', color: isNightMode ? 'white' : '' }}><Activity size={18} /> {t.nightMode}</button>
@@ -156,26 +171,23 @@ export default function App() {
       </div>
 
       {showFAQ ? (
-        <section className="faq-overlay animate-fadeIn"><div className="faq-header"><h2>{t.faq}</h2><button className="btn-faq" onClick={() => setShowFAQ(false)}>{t.backToApp}</button></div><div className="faq-grid">{[1,2,3,4,5,6].map(i => <div key={i} className="card"><h3><Info size={18} color="var(--accent-primary)"/> {(t as any)[`faq_q${i}`]}</h3><p style={{fontSize:'0.85rem', lineHeight:1.6}}>{(t as any)[`faq_a${i}`]}</p></div>)}</div></section>
+        <section className="faq-overlay animate-fadeIn"><div className="faq-header"><h2>{t.faq}</h2><button className="btn-faq" onClick={() => setShowFAQ(false)}>{t.backToApp}</button></div><div className="faq-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(400px, 1fr))', gap:'1.5rem'}}>{[1,2,3,4,5,6].map(i => <div key={i} className="card"><h3><Info size={18} color="var(--accent-primary)"/> {(t as any)[`faq_q${i}`]}</h3><p style={{fontSize:'0.85rem', lineHeight:1.6}}>{(t as any)[`faq_a${i}`]}</p></div>)}</div></section>
       ) : activeView === 'community' ? (
-        <section className="community-feed animate-fadeIn"><div style={{ textAlign: 'center', marginBottom: '3rem' }}><h2 style={{ color: 'var(--accent-primary)', fontSize:'2rem' }}><Globe size={32} /> Global Feed</h2></div>{sharedPosts.map(p => <div key={p.id} className="feed-item card" style={{marginBottom:'1rem'}}><h4><User size={14}/> {p.user} <span style={{fontWeight:400, color:'var(--text-muted)', marginLeft:'10px'}}>{p.time}</span></h4><p><strong>{p.object}:</strong> {p.note}</p></div>)}</section>
+        <section className="community-feed animate-fadeIn"><div style={{ textAlign: 'center', marginBottom: '2rem' }}><h2 style={{ color: 'var(--accent-primary)' }}><Globe size={24} /> Global Feed</h2></div>{sharedPosts.map(p => <div key={p.id} className="feed-item card" style={{marginBottom:'1rem'}}><h4><User size={14}/> {p.user} <span style={{fontWeight:400, color:'var(--text-muted)', marginLeft:'10px'}}>{p.time}</span></h4><p><strong>{p.object}:</strong> {p.note}</p></div>)}</section>
       ) : (
         <>
           <section className="hero-search animate-fadeIn">
             <div className="tabs-container">{['all', 'galaxies', 'clusters', 'nebulae', 'planets'].map(c => <button key={c} className={`tab-btn ${selectedCat === c ? 'active' : ''}`} onClick={() => setSelectedCat(c)}>{(t as any)[`cat_${c}`]}</button>)}</div>
-            <div className="search-wrapper"><Search className="search-icon-hero" size={28} /><input className="hero-search-input" placeholder={t.searchPlaceholder} value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true) }} onFocus={() => setShowSuggestions(true)} />{showSuggestions && suggestions.length > 0 && (<ul className="suggestions-list">{suggestions.map(o => <li key={o.id} className="suggestion-item" onClick={() => { setSelectedObjectId(o.id); setShowSuggestions(false) }}><div style={{display:'flex', alignItems:'center', gap:'10px'}}><span style={{fontWeight:800}}>{o.name}</span><span style={{fontSize:'0.7rem', color:'var(--text-muted)'}}>{o.commonName[lang]}</span></div><span style={{fontSize:'0.65rem', color:'var(--accent-primary)', fontWeight:700, textTransform:'uppercase'}}>{o.type}</span></li>)}</ul>)}</div>
-          </section>
-
+            <div className="search-wrapper"><Search className="search-icon-hero" size={28} /><input className="hero-search-input" placeholder={t.searchPlaceholder} value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true) }} onFocus={() => setShowSuggestions(true)} />{showSuggestions && suggestions.length > 0 && (<ul className="suggestions-list">{suggestions.map(o => <li key={o.id} className="suggestion-item" onClick={() => { setSelectedObjectId(o.id); setShowSuggestions(false) }}><div><span style={{fontWeight:800}}>{o.name}</span><span style={{fontSize:'0.7rem', color:'var(--text-muted)', marginLeft:'10px'}}>{o.commonName[lang]}</span></div><span style={{fontSize:'0.65rem', color:'var(--accent-primary)', fontWeight:700, textTransform:'uppercase'}}>{o.type}</span></li>)}</ul>)}</div></section>
           <div className="dashboard animate-fadeIn">
-            <section className="card"><div className="stat-label"><Sun size={16}/> {t.sunTimes}</div><div className="stat-value">{sunSet?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>Night: {astroTwilight?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p></section>
-            <section className="card"><div className="stat-label"><Moon size={16}/> {t.moonAsst}</div><div className="stat-value">{moonAge.toFixed(1)}d</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{moonPhase.toFixed(0)}° Ph | {MESSIER_CATALOG.length} Messier</p></section>
-            <section className="card"><div className="stat-label"><Wind size={16}/> {t.weather}</div><div className="stat-value" style={{color: (weatherData?.cloudcover||0)<2?'var(--accent-success)':'var(--accent-warning)'}}>{(weatherData?.cloudcover||0)<2?t.clear:t.cloudCover}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{weatherData?.humidity}% Hum | {weatherData?.cloudcover}/8 Cloud</p></section>
-            <section className="card"><div className="stat-label"><Activity size={16}/> {t.issFlyovers}</div><div style={{maxHeight:'60px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} style={{fontSize:'0.75rem', display:'flex', justifyContent:'space-between', marginBottom:'4px'}}><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span style={{color:'var(--accent-success)', fontWeight:800}}>{p.maxAlt}°</span></div>)}</div></section>
+            <section className="card"><div className="stat-label"><Sun size={14}/> {t.sunTimes}</div><div className="stat-value">{sunSet?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>Night: {astroTwilight?.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p></section>
+            <section className="card"><div className="stat-label"><Moon size={14}/> {t.moonAsst}</div><div className="stat-value">{moonAge.toFixed(1)}d</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{moonPhase.toFixed(0)}° Ph | {recommendedCraters.length} craters</p></section>
+            <section className="card"><div className="stat-label"><Wind size={14}/> {t.weather}</div><div className="stat-value" style={{color: (weatherData?.cloudcover||0)<2?'var(--accent-success)':'var(--accent-warning)'}}>{(weatherData?.cloudcover||0)<2?t.clear:t.cloudCover}</div><p style={{margin:0, fontSize:'0.8rem', color:'var(--text-muted)'}}>{weatherData?.humidity}% Hum | {weatherData?.cloudcover}/8 Cloud</p></section>
+            <section className="card"><div className="stat-label"><Activity size={14}/> {t.issFlyovers}</div><div style={{maxHeight:'60px', overflowY:'auto'}}>{issPasses.slice(0,3).map((p,i) => <div key={i} style={{fontSize:'0.75rem', display:'flex', justifyContent:'space-between', marginBottom:'4px'}}><span>{p.start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span style={{color:'var(--accent-success)', fontWeight:700}}>{p.maxAlt}°</span></div>)}</div></section>
           </div>
-
-          <div className="main-feature-grid animate-fadeIn">
+          <div className="feature-grid-3 animate-fadeIn">
             <div className="card" style={{ height: '480px', display: 'flex', flexDirection: 'column' }}>
-              <div className="stat-label"><MapIcon size={18} /> {t.starMap}</div>
+              <div className="stat-label"><MapIcon size={16} /> {t.starMap}</div>
               <div style={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <svg width="100%" height="100%" viewBox="0 0 400 400" style={{ maxWidth: '380px' }}>
                   <circle cx="200" cy="200" r="180" fill="rgba(15, 23, 42, 0.5)" stroke="var(--glass-border)" strokeWidth="1" />
@@ -188,30 +200,29 @@ export default function App() {
                     const r = 180 * (1 - obj.altitude / 90); const a = (obj.azimuth - 90) * Math.PI / 180;
                     const x = 200 + r * Math.cos(a); const y = 200 + r * Math.sin(a);
                     const isSelected = selectedObjectId === obj.id; const size = obj.type === 'Planet' ? 6 : Math.max(2, 7 - obj.magnitude / 2);
-                    return (<g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>{isSelected && (<circle cx={x} cy={y} r={size + 6} fill="none" stroke="var(--accent-primary)" strokeWidth="2"><animate attributeName="r" values={`${size+3};${size+12};${size+3}`} dur="2.5s" repeatCount="indefinite" /><animate attributeName="opacity" values="1;0;1" dur="2.5s" repeatCount="indefinite" /></circle>)}<circle cx={x} cy={y} r={size} fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? 'var(--accent-secondary)' : '#fff')} opacity={isSelected ? 1 : 0.7} /></g>)
+                    return (<g key={obj.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedObjectId(obj.id)}>{isSelected && (<circle cx={x} cy={y} r={size + 6} fill="none" stroke="var(--accent-primary)" strokeWidth="2"><animate attributeName="r" values={`${size+3};${size+12};${size+3}`} dur="2s" repeatCount="indefinite" /><animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" /></circle>)}<circle cx={x} cy={y} r={size} fill={isSelected ? 'var(--accent-primary)' : (obj.type === 'Planet' ? 'var(--accent-secondary)' : '#fff')} opacity={isSelected ? 1 : 0.7} /></g>)
                   })}
                   <text x="200" y="195" fill="rgba(255,255,255,0.2)" fontSize="8" textAnchor="middle" fontWeight="800">ZENITH</text>
                 </svg>
               </div>
             </div>
-            <div className="card celestial-registry-card" style={{ height: '480px', overflowY: 'auto' }}>
-              <div className="stat-label"><Info size={18} /> {t.celestialRegistry}</div>
+            <div className="card" style={{ height: '480px', overflowY: 'auto' }}>
+              <div className="stat-label"><Info size={16} /> {t.celestialRegistry}</div>
               {loadingWiki ? (<div style={{ textAlign: 'center', marginTop: '6rem' }}><div className="animate-spin-slow" style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid var(--accent-primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div><p style={{fontSize:'0.8rem', marginTop:'15px'}}>{t.wikiLoading}</p></div>
               ) : wikiData ? (<div><div style={{ display: 'flex', gap: '20px', marginBottom: '1.5rem', alignItems:'center' }}>{wikiData.image && <img src={wikiData.image} alt="object" style={{ width: '100px', height: '100px', borderRadius: '18px', objectFit: 'cover', border:'1px solid var(--glass-border)' }} />}<div><h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize:'1.4rem' }}>{selectedObject.name}</h3><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight:700 }}>{wikiData.description}</div></div></div><div style={{ fontSize: '0.9rem', lineHeight: '1.7', background: 'rgba(0,0,0,0.25)', padding: '1.2rem', borderRadius: '18px', border:'1px solid var(--glass-border)' }}>{wikiData.extract}</div><div style={{marginTop:'1.2rem', padding:'10px', background:'rgba(59,130,246,0.1)', borderRadius:'12px'}}><div style={{fontSize:'0.65rem', color:'var(--accent-secondary)', fontWeight:900, textTransform:'uppercase'}}>{t.discovery}</div><div style={{fontSize:'0.85rem', fontWeight:600}}>Magnitude {selectedObject.magnitude} | Type: {selectedObject.type}</div></div></div>
               ) : (<div style={{ textAlign: 'center', marginTop: '6rem', color: 'var(--text-muted)' }}><Zap size={48} opacity={0.2} /><p>{t.wikiError}</p></div>)}
             </div>
             <div className="card" style={{ height: '480px' }}>
-              <div className="stat-label"><Camera size={18} /> {t.astroAsst}</div>
+              <div className="stat-label"><Camera size={16} /> {t.astroAsst}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1.5rem' }}>
                 <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>PIXEL (μm)</label><input type="number" value={pixelSize} onChange={e => setPixelSize(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div>
                 <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>F-RATIO</label><input type="number" value={apertureF} onChange={e => setApertureF(parseFloat(e.target.value))} className="ascom-input" style={{width:'100%'}} /></div>
               </div>
               <div style={{ background: 'rgba(139, 92, 246, 0.05)', padding: '1.2rem', borderRadius: '18px', border:'1px solid var(--accent-glow)', marginBottom: '1.2rem', textAlign:'center' }}><div className="stat-label" style={{justifyContent:'center', fontSize:'0.7rem'}}>{t.sampling}</div><div style={{fontSize:'1.8rem', fontWeight:900, color:'var(--accent-primary)'}}>{imageScale}"/px</div><div style={{fontSize:'0.75rem', fontWeight:800, color:samplingStatus.color, textTransform:'uppercase'}}>{samplingStatus.label}</div></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom:'1.5rem' }}><div className="card" style={{padding:'12px', textAlign:'center', background:'rgba(0,0,0,0.2)'}}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>{t.guiding}</div><div style={{fontSize:'1rem', fontWeight:800}}>{guidingRMS}" RMS</div></div><div className="card" style={{padding:'12px', textAlign:'center', background:'rgba(0,0,0,0.2)'}}><div style={{fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:800}}>{t.integration}</div><div style={{fontSize:'1rem', fontWeight:800, color:'var(--accent-secondary)'}}>~{integrationReq}</div></div></div>
-              <div style={{ padding: '0.8rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '12px', border:'1px solid rgba(16, 185, 129, 0.2)' }}><Zap size={20} color="var(--accent-success)" /><div><div style={{fontSize:'0.6rem', color:'var(--accent-success)', fontWeight:900}}>{t.recommendedFilter}</div><div style={{fontSize:'0.85rem', fontWeight:800}}>{selectedObject.recommendedFilter || 'Broadband'}</div></div></div>
+              <div style={{ padding: '0.8rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '15px', border:'1px solid rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', gap: '12px' }}><Zap size={20} color="var(--accent-success)" /><div><div style={{fontSize:'0.6rem', color:'var(--accent-success)', fontWeight:900}}>{t.recommendedFilter}</div><div style={{fontSize:'0.85rem', fontWeight:800}}>{selectedObject.recommendedFilter || 'Broadband'}</div></div></div>
             </div>
           </div>
-
           <div className="grid-2-cols animate-fadeIn">
             <div className="card" style={{display:'flex', flexDirection:'column'}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem'}}><div style={{display:'flex', alignItems:'center', gap:'12px'}}><BarChart3 size={24} color="var(--accent-primary)"/><h3 style={{margin:0, fontSize:'1.4rem'}}>{selectedObject.name}</h3></div><button onClick={() => shareObservation(selectedObject.id)} className="btn-faq"><Share2 size={16}/> SHARE</button></div>
@@ -224,11 +235,10 @@ export default function App() {
             </div>
             <div className="card"><div className="stat-label"><Eye size={18}/> {t.imaging}</div><div style={{borderRadius:'20px', overflow:'hidden', height:'350px', background:'#000', border:'1px solid var(--glass-border)'}}><iframe src={`https://aladin.u-strasbg.fr/AladinLite/?target=${selectedObject.id || selectedObject.name}&fov=${selectedObject.type==='Planet'?'1':'0.5'}&survey=P/DSS2/color`} width="100%" height="100%" style={{ border: 'none' }} title="Aladin Lite" /></div></div>
           </div>
-
           <div className="grid-2-cols animate-fadeIn">
             <div className="card">
-              <div className="stat-label"><Sparkles size={18} /> {t.gearSimulator}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '2rem' }}>
+              <div className="stat-label"><Sparkles size={16} /> {t.gearSimulator}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '2rem' }}>
                 <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>APERTURE</label><input type="number" value={aperture} onChange={e => setAperture(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
                 <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>FOCAL</label><input type="number" value={focalLength} onChange={e => setFocalLength(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
                 <div className="control-item"><label style={{fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:800}}>EYEPIECE</label><input type="number" value={eyepiece} onChange={e => setEyepiece(parseInt(e.target.value))} className="ascom-input" style={{width:'100%', fontSize:'0.8rem'}} /></div>
@@ -257,7 +267,8 @@ export default function App() {
               </div>
             </div>
           </div>
-
+          <div className="card animate-fadeIn" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Sparkles size={18} /> {t.comets}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>{BRIGHT_COMETS.map(c => (<div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize:'0.85rem' }}><span>{c.name}</span><span style={{ color: 'var(--accent-success)', fontWeight:700 }}>Mag {c.mag}</span></div>))}</div></div>
+          <div className="card animate-fadeIn" style={{ marginBottom: '1.5rem' }}><div className="stat-label"><Activity size={18} /> {t.meteorShowers}</div><div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap:'10px' }}>{METEOR_SHOWERS.slice(0,6).map(s => (<div key={s.name.en} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}><span>{s.name[lang]}</span><span style={{ color: 'var(--accent-primary)', fontWeight:700 }}>{s.date}</span></div>))}</div></div>
           <section className="map-container card pollution-map animate-fadeIn" style={{ height: 'auto', minHeight: '650px', marginBottom:'2.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}><div className="stat-label" style={{ marginBottom: 0, fontSize:'1.1rem' }}><Globe size={24} /> {t.darkSkyMap}</div></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
@@ -286,17 +297,12 @@ export default function App() {
               </div>
             </div>
           </section>
-
           <section className="logbook card animate-fadeIn">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-              <div><h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0, fontSize:'1.8rem' }}><Calendar size={32} color="var(--accent-primary)" /> {t.nightPlan}</h2><div style={{fontSize:'0.8rem', color:'var(--text-muted)', fontWeight:700, marginTop:'5px'}}>COMMAND CENTER LOGS | {nightPlan.length} MISSION TARGETS</div></div>
-              <button className="btn-faq btn-primary" onClick={exportToPDF} style={{padding:'12px 25px'}}><Send size={18} style={{marginRight:'10px'}}/> GENERATE MISSION REPORT</button>
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}><div><h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0, fontSize:'1.8rem' }}><Calendar size={32} color="var(--accent-primary)" /> {t.nightPlan}</h2><div style={{fontSize:'0.8rem', color:'var(--text-muted)', fontWeight:700}}>SESSION: {nightPlan.length} TARGETS</div></div><button className="btn-faq btn-primary" onClick={exportToPDF}>GENERATE MISSION REPORT</button></div>
             <div className="grid-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))' }}>
-              {nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `5px solid ${obj.altitude > 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center', marginBottom:'1rem' }}><div><h3 style={{margin:0, fontSize:'1.2rem'}}>{obj.name}</h3><div style={{fontSize:'0.75rem', color:'var(--text-muted)', fontWeight:700}}>{obj.commonName[lang]}</div></div><div style={{textAlign:'right'}}><div style={{fontSize:'1.1rem', fontWeight:900, color:obj.altitude>0?'var(--accent-success)':'var(--accent-danger)'}}>{obj.altitude.toFixed(1)}°</div><div style={{fontSize:'0.55rem', fontWeight:800, textTransform:'uppercase'}}>{obj.altitude>0?'VISIBLE':'BELOW HORIZON'}</div></div></div><textarea value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} placeholder="MISSION LOGS..." style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', color: 'white', padding: '1rem', borderRadius: '15px', minHeight:'100px', outline:'none', fontSize:'0.9rem', marginBottom:'1rem' }} /><button onClick={() => setNightPlan(p => p.filter(x => x !== id))} className="btn-faq" style={{width:'100%', color:'var(--accent-danger)', borderColor:'rgba(239,68,68,0.2)', fontWeight:900}}>ABORT TARGET</button></div>) })}
+              {nightPlan.map(id => { const obj = allObjects.find(o => o.id === id); if (!obj) return null; return (<div key={obj.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', borderLeft: `5px solid ${obj.altitude > 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'flex-start', marginBottom:'1rem' }}><div><h3 style={{margin:0, fontSize:'1.2rem'}}>{obj.name}</h3><div style={{fontSize:'0.75rem', color:'var(--text-muted)', fontWeight:700}}>{obj.commonName[lang]}</div></div><div style={{textAlign:'right'}}><div style={{fontSize:'1.1rem', fontWeight:900, color:obj.altitude>0?'var(--accent-success)':'var(--accent-danger)'}}>{obj.altitude.toFixed(1)}°</div><div style={{fontSize:'0.55rem', fontWeight:800, textTransform:'uppercase'}}>{obj.altitude>0?'VISIBLE':'BELOW'}</div></div></div><textarea value={observations[id] || ''} onChange={(e) => setObservations(prev => ({ ...prev, [id]: e.target.value }))} placeholder="MISSION NOTES..." style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', color: 'white', padding: '1rem', borderRadius: '15px', minHeight:'100px', outline:'none', fontSize:'0.9rem', marginBottom:'1rem' }} /><div style={{display:'flex', gap:'8px'}}><button onClick={() => shareObservation(id)} className="btn-faq" style={{flexGrow:1}}><Share2 size={12}/> SHARE</button><button onClick={() => setNightPlan(p => p.filter(x => x !== id))} className="btn-faq" style={{color:'var(--accent-danger)', borderColor:'rgba(239,68,68,0.2)'}}>REMOVE</button></div></div>) })}
             </div>
           </section>
-
           <section className="object-list animate-fadeIn" style={{ marginTop: '4rem' }}><h2 style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2.5rem', fontSize:'2rem' }}><Eye size={36} color="var(--accent-primary)" /> {t.objects}</h2><div className="grid-list">{filteredObjects.map(obj => (<div key={obj.id} className={`card object-card ${selectedObjectId === obj.id ? 'selected' : ''}`} onClick={() => setSelectedObjectId(obj.id)} style={{borderLeftColor: selectedObjectId===obj.id?'var(--accent-primary)':''}}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center' }}><div><h3 className="obj-name" style={{fontSize:'1.3rem', margin:0}}>{obj.name}</h3><div className="obj-meta" style={{fontSize:'0.8rem', fontWeight:600}}>{obj.commonName[lang]}</div><div className="obj-meta" style={{ marginTop: '12px', fontSize:'0.7rem' }}><span style={{ color: 'var(--accent-secondary)', fontWeight:800, textTransform:'uppercase' }}>{obj.type}</span> • MAG {obj.magnitude}</div></div><div style={{ textAlign: 'right' }}><div className={`alt-badge ${obj.altitude <= 0 ? 'below' : ''}`} style={{fontSize:'1.1rem', padding:'5px 15px'}}>{obj.altitude.toFixed(1)}°</div><button onClick={(e) => { e.stopPropagation(); if (!nightPlan.includes(obj.id)) setNightPlan(prev => [...prev, obj.id]) }} className="btn-faq" style={{ marginTop: '12px', padding:'5px 15px', width:'100%', background:'rgba(139, 92, 246, 0.1)', borderColor:'var(--accent-primary)' }}>{t.addToPlan}</button></div></div></div>))}</div></section>
         </>
       )}

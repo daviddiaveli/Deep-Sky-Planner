@@ -62,14 +62,15 @@ export default function App() {
     const fetchWiki = async () => {
       const obj = allObjects.find(o => o.id === selectedObjectId); if (!obj) return
       setLoadingWiki(true); try {
-        const query = (obj.commonName.en || obj.name).replace(/ /g, '_')
-        const r = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${query}`); const d = await r.json()
+        const wikiLang = lang === 'cz' ? 'cs' : 'en'
+        const query = (obj.commonName[lang] || obj.name).replace(/ /g, '_')
+        const r = await fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${query}`); const d = await r.json()
         if (d.extract) setWikiData({ extract: d.extract, description: d.description || obj.type, image: d.thumbnail?.source })
         else setWikiData(null)
       } catch (e) { setWikiData(null) } finally { setLoadingWiki(false) }
     }
     fetchWiki()
-  }, [selectedObjectId, allObjects])
+  }, [selectedObjectId, allObjects, lang])
 
   useEffect(() => { const f = async () => { try { const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544'); const d = await r.json(); if (d?.latitude !== undefined) { const np: [number, number] = [d.latitude, d.longitude]; setIssLivePos(np); setIssTelemetry({ alt: d.altitude, vel: d.velocity, vis: d.visibility }); setIssPath(p => [...p, np].slice(-50)) } } catch (e) {} }; f(); const tm = setInterval(f, 5000); return () => clearInterval(tm) }, [])
   useEffect(() => { const ps = []; let st = new Date(date); for (let i = 0; i < 3; i++) { st = new Date(st.getTime() + (Math.random() * 3 + 1) * 3600000); ps.push({ start: new Date(st), maxAlt: Math.floor(Math.random() * 60 + 20) }) }; setIssPasses(ps) }, [date])

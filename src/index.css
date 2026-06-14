@@ -91,17 +91,18 @@ body {
 /* Global Layout */
 .app-container { max-width: 1500px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-/* Grid Utilities */
+/* Grid Utilities - Safe Configuration */
 .grid-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-.grid-3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-.grid-pollution { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+.grid-pollution { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; margin-bottom: 2rem; }
 
 @media (max-width: 1200px) {
-  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 > div:first-child { grid-column: span 2; }
 }
-@media (max-width: 850px) {
+
+@media (max-width: 950px) {
   .grid-3, .grid-2, .grid-pollution { grid-template-columns: 1fr; }
   .grid-3 > div:first-child { grid-column: span 1; }
 }
